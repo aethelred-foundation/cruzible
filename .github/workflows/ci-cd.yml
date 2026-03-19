@@ -385,6 +385,7 @@ jobs:
           # kubectl apply -f k8s/production/
 
       - name: Notify on Success
+        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
         uses: slackapi/slack-github-action@v1
         with:
           payload: |
@@ -393,3 +394,6 @@ jobs:
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Log deployment success
+        run: echo "✅ Production deployment completed successfully"
