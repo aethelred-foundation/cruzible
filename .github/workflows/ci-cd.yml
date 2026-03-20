@@ -21,6 +21,10 @@ jobs:
   security-scan:
     name: Security Audit
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@v4
 
@@ -151,7 +155,7 @@ jobs:
       - name: Build SDK (Backend dependency)
         if: matrix.test-type == 'backend'
         working-directory: ./sdk/typescript
-        run: npm install && npx tsc -p tsconfig.json
+        run: npm install && npm run build
 
       - name: Run Backend Tests
         if: matrix.test-type == 'backend'
