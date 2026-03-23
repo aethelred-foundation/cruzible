@@ -45,6 +45,9 @@ coverage/
 # AI Tooling
 .claude/
 
+# Vercel
+.vercel/
+
 # Terraform
 .terraform/
 *.tfstate
