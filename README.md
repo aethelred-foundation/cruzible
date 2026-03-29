@@ -3,8 +3,8 @@
   <h1>Cruzible</h1>
   <p><strong>TEE-verified liquid staking vault for the Aethelred sovereign L1</strong></p>
   <p>
-    <a href="https://github.com/aethelred-foundation/cruzible/actions/workflows/ci-cd.yml"><img src="https://img.shields.io/github/actions/workflow/status/aethelred-foundation/cruzible/ci-cd.yml?branch=main&style=flat-square&label=CI" alt="CI"></a>
-    <a href="https://codecov.io/gh/aethelred-foundation/cruzible"><img src="https://img.shields.io/codecov/c/github/aethelred-foundation/cruzible?style=flat-square&label=coverage" alt="Coverage"></a>
+    <a href="https://github.com/aethelred-foundation/cruzible/actions/workflows/ci-cd.yml"><img src="https://github.com/aethelred-foundation/cruzible/actions/workflows/ci-cd.yml/badge.svg?branch=main" alt="CI"></a>
+    <a href="docs/architecture/12-public-readiness.md"><img src="https://img.shields.io/badge/status-pre--mainnet-f59e0b?style=flat-square" alt="Status"></a>
     <a href="backend/contracts/SECURITY_AUDIT.md"><img src="https://img.shields.io/badge/audit-120_attack_analysis-informational?style=flat-square" alt="Audit"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square" alt="License"></a>
   </p>
