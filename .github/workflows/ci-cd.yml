@@ -31,7 +31,7 @@ jobs:
 
       # Rust security scan
       - name: Install Rust
-        uses: dtolnay/rust-action@stable
+        uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.RUST_VERSION }}
 
@@ -84,7 +84,7 @@ jobs:
 
       # Rust setup
       - name: Install Rust
-        uses: dtolnay/rust-action@stable
+        uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.RUST_VERSION }}
           components: rustfmt, clippy
@@ -164,7 +164,7 @@ jobs:
       # Smart Contract Tests
       - name: Install Rust (Contracts)
         if: matrix.test-type == 'contracts'
-        uses: dtolnay/rust-action@stable
+        uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.RUST_VERSION }}
 
