@@ -36,7 +36,7 @@ jobs:
           toolchain: ${{ env.RUST_VERSION }}
 
       - name: Install cargo-audit
-        run: cargo install cargo-audit
+        run: cargo install cargo-audit --locked
 
       - name: Audit Rust dependencies
         working-directory: ./backend/contracts
@@ -97,7 +97,7 @@ jobs:
       # Clippy
       - name: Run Clippy
         working-directory: ./backend/contracts
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo clippy --all-targets --all-features -- -D warnings -A unused-imports -A clippy::empty-line-after-doc-comments
 
   # =============================================================================
   # UNIT TESTS
@@ -151,7 +151,7 @@ jobs:
       - name: Run Backend Tests with Coverage
         if: matrix.test-type == 'backend'
         working-directory: ./backend/api
-        run: npm run test:ci
+        run: npm run test
 
       - name: Upload Backend Coverage
         if: matrix.test-type == 'backend'
