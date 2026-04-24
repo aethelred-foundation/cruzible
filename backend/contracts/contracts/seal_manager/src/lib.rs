@@ -8,7 +8,7 @@ use cosmwasm_std::{
     StdResult, Timestamp,
 };
 use cw2::set_contract_version;
-use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
+use cw_storage_plus::{Index, IndexList, IndexedMap, Item, MultiIndex};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

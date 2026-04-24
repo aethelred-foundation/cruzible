@@ -29,11 +29,6 @@ const nextConfig = {
     ignoreBuildErrors: false,
   },
 
-  // Linting runs as a dedicated CI step, so builds don't need to invoke it again.
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-
   // Headers for security and caching
   async headers() {
     return [

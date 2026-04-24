@@ -1,20 +1,7 @@
 /**
  * AI Job Manager - Comprehensive Test Suite
  *
- * Test Coverage: 100%
- * - Instantiate: ✓
- * - SubmitJob: ✓
- * - AssignJob: ✓
- * - StartComputing: ✓
- * - CompleteJob: ✓
- * - VerifyJob: ✓
- * - FailJob: ✓
- * - CancelJob: ✓
- * - ClaimPayment: ✓
- * - UpdateConfig: ✓
- * - CleanupExpired: ✓
- * - All Query functions: ✓
- * - All Error conditions: ✓
+ * Covers the core job lifecycle, queries, stats, and config guardrails.
  */
 
 #[cfg(test)]

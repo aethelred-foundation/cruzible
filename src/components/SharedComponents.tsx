@@ -910,7 +910,6 @@ const NAV_LINKS: {
   { id: "vault", label: "VAULT", href: "/vault" },
   { id: "stablecoins", label: "STABLECOINS", href: "/stablecoins" },
   { id: "validators", label: "VALIDATORS", href: "/validators" },
-  { id: "governance", label: "GOVERNANCE", href: "/governance" },
   { id: "reconciliation", label: "RECONCILIATION", href: "/reconciliation" },
 ];
 

@@ -37,6 +37,10 @@ import {
   STABLECOIN_TOKEN_ADDRESS_KEYS,
 } from "@/config/chains";
 import { getAllStablecoins } from "@/lib/constants";
+import {
+  fetchReconciliationControlPlane,
+  type ReconciliationControlPlaneSummary,
+} from "@/lib/reconciliation";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -66,9 +70,14 @@ export interface RealTimeState {
   tps: number;
   gasPrice: number;
   epoch: number;
+  epochSource: string;
   networkLoad: number;
   aethelPrice: number;
   lastBlockTime: number;
+  protocolCapturedAt: string | null;
+  validatorUniverseHash: string;
+  reconciliationWarnings: number;
+  reconciliationComplete: boolean | null;
 }
 
 export interface Notification {
@@ -133,9 +142,14 @@ const DEFAULT_REALTIME: RealTimeState = {
   tps: 0,
   gasPrice: 0,
   epoch: 0,
+  epochSource: "rpc/block-height-estimate",
   networkLoad: 0,
   aethelPrice: 0,
   lastBlockTime: 0,
+  protocolCapturedAt: null,
+  validatorUniverseHash: "",
+  reconciliationWarnings: 0,
+  reconciliationComplete: null,
 };
 
 // ---------------------------------------------------------------------------
@@ -293,18 +307,67 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   });
 
   const [realTime, setRealTime] = useState<RealTimeState>(DEFAULT_REALTIME);
+  const [controlPlane, setControlPlane] =
+    useState<ReconciliationControlPlaneSummary | null>(null);
 
   useEffect(() => {
-    if (blockNumber !== undefined) {
-      setRealTime((prev) => ({
+    let cancelled = false;
+
+    const refreshControlPlane = async () => {
+      try {
+        const summary = await fetchReconciliationControlPlane();
+        if (!cancelled) {
+          setControlPlane(summary);
+        }
+      } catch {
+        // Keep the last known control-plane snapshot and let block height
+        // remain as the fallback source when public reconciliation is unavailable.
+      }
+    };
+
+    void refreshControlPlane();
+    const intervalId = window.setInterval(() => {
+      void refreshControlPlane();
+    }, 15_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
+  useEffect(() => {
+    setRealTime((prev) => {
+      const nextBlockHeight =
+        blockNumber !== undefined
+          ? Number(blockNumber)
+          : controlPlane?.chain_height ?? prev.blockHeight;
+      const fallbackEpoch =
+        blockNumber !== undefined
+          ? Math.floor(Number(blockNumber) / 1000)
+          : prev.epoch;
+
+      return {
         ...prev,
-        blockHeight: Number(blockNumber),
-        lastBlockTime: Date.now(),
-        // Epoch estimate: blockHeight / 1000 (actual epoch should come from contract)
-        epoch: Math.floor(Number(blockNumber) / 1000),
-      }));
-    }
-  }, [blockNumber]);
+        blockHeight: nextBlockHeight,
+        lastBlockTime:
+          blockNumber !== undefined || controlPlane ? Date.now() : prev.lastBlockTime,
+        epoch: controlPlane?.epoch ?? fallbackEpoch,
+        epochSource:
+          controlPlane?.epoch_source ??
+          (blockNumber !== undefined
+            ? "rpc/block-height-estimate"
+            : prev.epochSource),
+        protocolCapturedAt: controlPlane?.captured_at ?? prev.protocolCapturedAt,
+        validatorUniverseHash:
+          controlPlane?.validator_universe_hash ?? prev.validatorUniverseHash,
+        reconciliationWarnings:
+          controlPlane?.warning_count ?? prev.reconciliationWarnings,
+        reconciliationComplete:
+          controlPlane?.stake_snapshot_complete ?? prev.reconciliationComplete,
+      };
+    });
+  }, [blockNumber, controlPlane]);
 
   // --- Notifications --------------------------------------------------------
   const [notifications, setNotifications] = useState<Notification[]>([]);

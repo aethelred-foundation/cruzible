@@ -84,6 +84,7 @@ const VAULT_VIEW_ABI = [
   'function getTotalShares() view returns (uint256)',
   'function getExchangeRate() view returns (uint256)',
   'function getActiveValidatorCount() view returns (uint256)',
+  'function currentEpoch() view returns (uint256)',
 ];
 
 /**
@@ -1887,12 +1888,13 @@ export class IndexerService {
         provider,
       );
 
-      const [totalPooled, totalShares, exchangeRate, activeValidators] =
+      const [totalPooled, totalShares, exchangeRate, activeValidators, currentEpoch] =
         await Promise.all([
           vault.getTotalPooledAethel() as Promise<bigint>,
           vault.getTotalShares() as Promise<bigint>,
           vault.getExchangeRate() as Promise<bigint>,
           vault.getActiveValidatorCount() as Promise<bigint>,
+          vault.currentEpoch() as Promise<bigint>,
         ]);
 
       // Count current stakers from the derived balance table
@@ -1913,6 +1915,7 @@ export class IndexerService {
           totalStaked: totalPooled.toString(),
           totalShares: totalShares.toString(),
           exchangeRate: exchangeRateDecimal,
+          currentEpoch,
           currentApy: 0, // APY requires multi-epoch tracking — left for a future enhancement
           totalStakers: BigInt(totalStakers),
           validatorsBacking: Number(activeValidators),
@@ -1923,6 +1926,7 @@ export class IndexerService {
           totalStaked: totalPooled.toString(),
           totalShares: totalShares.toString(),
           exchangeRate: exchangeRateDecimal,
+          currentEpoch,
           currentApy: 0,
           totalStakers: BigInt(totalStakers),
           validatorsBacking: Number(activeValidators),
@@ -1932,7 +1936,7 @@ export class IndexerService {
 
       logger.info(
         `VaultState refreshed: totalStaked=${totalPooled} totalShares=${totalShares} ` +
-        `exchangeRate=${exchangeRateDecimal} validators=${activeValidators} stakers=${totalStakers}`,
+        `exchangeRate=${exchangeRateDecimal} epoch=${currentEpoch} validators=${activeValidators} stakers=${totalStakers}`,
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

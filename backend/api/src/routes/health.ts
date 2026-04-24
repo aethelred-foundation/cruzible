@@ -173,7 +173,10 @@ router.get('/', async (_req: Request, res: Response) => {
 
     reconciliation = {
       lastRun: latestResult?.timestamp ?? null,
+      epoch: latestResult?.epoch ?? null,
+      epochSource: latestResult?.epochSource ?? null,
       status: latestResult?.status ?? 'UNKNOWN',
+      lastDurationMs: latestResult?.durationMs ?? null,
       activeCriticalAlerts: activeCritical,
     };
   } catch {
@@ -255,9 +258,10 @@ router.get('/ready', async (_req: Request, res: Response) => {
   let reconciliationReady = true;
   let reconciliationStatus: string | null = null;
   let activeCriticalAlerts = 0;
+  let latestResult: { epoch?: number; epochSource?: string; status?: string; timestamp?: string } | null = null;
   try {
     const scheduler = container.resolve(ReconciliationScheduler);
-    const latestResult = scheduler.getLatestResult();
+    latestResult = scheduler.getLatestResult();
     reconciliationStatus = latestResult?.status ?? null;
 
     const alertServiceInstance = container.resolve(AlertService);
@@ -279,7 +283,10 @@ router.get('/ready', async (_req: Request, res: Response) => {
       blockchainRpc: rpc,
       ...(config.indexerEnabled ? { indexer: { lag: indexerLag, ready: indexerReady } } : {}),
       reconciliation: {
+        epoch: latestResult?.epoch ?? null,
+        epochSource: latestResult?.epochSource ?? null,
         status: reconciliationStatus ?? 'UNKNOWN',
+        lastRun: latestResult?.timestamp ?? null,
         activeCriticalAlerts,
         ready: reconciliationReady,
       },

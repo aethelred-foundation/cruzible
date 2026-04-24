@@ -1,7 +1,7 @@
 /**
  * AethelVault Security Tests
  *
- * Tests protection against all 120 attack scenarios from the Attack Playbook.
+ * Exercises the highest-risk attack scenarios called out by the Attack Playbook.
  * Critical invariants verified:
  * 1. No double claim possible
  * 2. Rounding favors protocol
@@ -15,12 +15,8 @@ mod security_tests {
     use crate::*;
     use cosmwasm_std::testing::{
         mock_dependencies, mock_env, mock_info, MockApi, MockQuerier, MockStorage,
-        MOCK_CONTRACT_ADDR,
     };
-    use cosmwasm_std::{
-        coin, coins, from_json, Addr, BankMsg, CosmosMsg, Env, MessageInfo, OwnedDeps, Response,
-        Uint128,
-    };
+    use cosmwasm_std::{coins, from_json, Env, MessageInfo, OwnedDeps, Response, Uint128};
 
     // ============ TEST HELPERS ============
 
@@ -101,7 +97,7 @@ mod security_tests {
 
     #[test]
     fn test_attack_4_donation_does_not_inflate_shares() {
-        let (mut deps, mut env, _) = proper_instantiate();
+        let (mut deps, env, _) = proper_instantiate();
 
         // Record initial state
         let _state: State =
@@ -163,7 +159,7 @@ mod security_tests {
         // Theoretical shares would be slightly more
 
         // Now unstake - should burn more shares
-        let user_stake: UserStake = from_json(
+        let _user_stake: UserStake = from_json(
             &query(
                 deps.as_ref(),
                 env.clone(),
@@ -632,7 +628,3 @@ mod security_tests {
         assert!(matches!(err, ContractError::Std(_)));
     }
 }
-
-// Import needed types for tests
-use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage};
-use cosmwasm_std::OwnedDeps;

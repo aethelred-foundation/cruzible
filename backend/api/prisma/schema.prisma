@@ -535,6 +535,7 @@ model VaultState {
   totalStaked         String   // Total AETHEL staked
   totalShares         String   // Total stAETHEL shares
   exchangeRate        String   // AETHEL per stAETHEL
+  currentEpoch        BigInt   @default(0)
   currentApy          Float
   totalStakers        BigInt   @default(0)
   validatorsBacking   Int
@@ -754,6 +755,63 @@ model StablecoinBridgeEvent {
   @@index([sender])
   @@index([blockNumber])
   @@index([timestamp])
+}
+
+// ============ RECONCILIATION ============
+
+model ReconciliationSnapshot {
+  id                      String                     @id @default(uuid())
+  snapshotKey             String                     @unique @db.VarChar(191)
+  epoch                   BigInt
+  network                 String                     @db.VarChar(50)
+  mode                    String                     @db.VarChar(50)
+  capturedAt              DateTime
+  epochSource             String                     @db.VarChar(120)
+  chainHeight             BigInt
+  validatorLimit          Int
+  validatorCount          Int
+  totalEligibleValidators Int
+  validatorUniverseHash   String                     @db.VarChar(66)
+  stakeSnapshotHash       String?                    @db.VarChar(66)
+  stakeSnapshotComplete   Boolean?
+  warningCount            Int                        @default(0)
+  discrepancyCount        Int                        @default(0)
+  warnings                Json
+  document                Json
+  discrepancies           ReconciliationDiscrepancy[]
+  createdAt               DateTime                   @default(now())
+
+  @@index([epoch])
+  @@index([capturedAt])
+  @@index([validatorUniverseHash])
+}
+
+model ReconciliationDiscrepancy {
+  id               String                          @id @default(uuid())
+  snapshot         ReconciliationSnapshot          @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  snapshotId       String
+  code             String                          @db.VarChar(100)
+  severity         ReconciliationDiscrepancySeverity
+  status           String                          @db.VarChar(32)
+  title            String                          @db.VarChar(160)
+  message          String
+  affectedAccounts Int                             @default(0)
+  affectedShares   String?
+  impactBps        Int?
+  sampleAddresses  String[]
+  evidence         Json?
+  remediation      String?
+  createdAt        DateTime                        @default(now())
+
+  @@index([snapshotId])
+  @@index([code])
+  @@index([severity])
+}
+
+enum ReconciliationDiscrepancySeverity {
+  INFO
+  WARNING
+  CRITICAL
 }
 
 // ============ SYNC STATE ============

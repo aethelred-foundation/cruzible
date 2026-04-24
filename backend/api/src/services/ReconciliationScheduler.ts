@@ -24,6 +24,7 @@ import { BlockchainService } from './BlockchainService';
 import { CacheService } from './CacheService';
 import { AlertService, AlertSeverity, AlertType } from './AlertService';
 import { logger } from '../utils/logger';
+import { resolveProtocolEpoch } from '../lib/protocolEpoch';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -33,6 +34,7 @@ export interface ReconciliationResult {
   timestamp: string;
   status: 'OK' | 'WARNING' | 'CRITICAL';
   epoch: number;
+  epochSource: string;
   checks: ReconciliationCheck[];
   onChainState: OnChainState | null;
   indexedState: IndexedState | null;
@@ -48,6 +50,8 @@ export interface ReconciliationCheck {
 
 export interface OnChainState {
   latestHeight: number;
+  protocolEpoch: number;
+  epochSource: string;
   validatorCount: number;
   activeValidatorCount: number;
   totalStaked: string;
@@ -57,6 +61,7 @@ export interface IndexedState {
   totalStaked: string | null;
   totalShares: string | null;
   exchangeRate: string | null;
+  currentEpoch: number | null;
   validatorsBacking: number | null;
   totalStakers: number | null;
   lastUpdated: string | null;
@@ -234,23 +239,28 @@ export class ReconciliationScheduler {
       let onChainState: OnChainState | null = null;
       let indexedState: IndexedState | null = null;
       let epoch = 0;
+      let epochSource = 'unknown';
 
       try {
         // 1. Fetch on-chain state
         onChainState = await this.fetchOnChainState();
-        epoch = onChainState.latestHeight;
+        epoch = onChainState.protocolEpoch;
+        epochSource = onChainState.epochSource;
 
         // 2. Fetch indexed state
         indexedState = await this.fetchIndexedState();
 
         // 3. Run checks
+        const epochResolutionCheck = this.checkEpochResolution(onChainState);
+        checks.push(epochResolutionCheck);
+
         const exchangeRateCheck = this.checkExchangeRate(indexedState);
         checks.push(exchangeRateCheck);
 
         const tvlCheck = this.checkTvlConsistency(onChainState, indexedState);
         checks.push(tvlCheck);
 
-        const epochCheck = this.checkEpochFreshness(indexedState);
+        const epochCheck = this.checkEpochFreshness(onChainState, indexedState);
         checks.push(epochCheck);
 
         const validatorCheck = this.checkValidatorCount(onChainState);
@@ -284,6 +294,7 @@ export class ReconciliationScheduler {
         timestamp: new Date().toISOString(),
         status: overallStatus,
         epoch,
+        epochSource,
         checks,
         onChainState,
         indexedState,
@@ -321,6 +332,10 @@ export class ReconciliationScheduler {
       this.blockchainService.getLatestHeight(),
       this.blockchainService.getValidators({ limit: 500, offset: 0 }),
     ]);
+    const protocolEpoch = await resolveProtocolEpoch({
+      blockchainService: this.blockchainService,
+      latestHeight,
+    });
 
     const validators = validatorsResponse.data;
     const activeValidators = validators.filter((v) => !v.jailed);
@@ -331,6 +346,8 @@ export class ReconciliationScheduler {
 
     return {
       latestHeight,
+      protocolEpoch: protocolEpoch.epoch,
+      epochSource: protocolEpoch.source,
       validatorCount: validators.length,
       activeValidatorCount: activeValidators.length,
       totalStaked: totalStaked.toString(),
@@ -347,6 +364,7 @@ export class ReconciliationScheduler {
         totalStaked: null,
         totalShares: null,
         exchangeRate: null,
+        currentEpoch: null,
         validatorsBacking: null,
         totalStakers: null,
         lastUpdated: null,
@@ -357,6 +375,7 @@ export class ReconciliationScheduler {
       totalStaked: vaultState.totalStaked,
       totalShares: vaultState.totalShares,
       exchangeRate: vaultState.exchangeRate,
+      currentEpoch: Number(vaultState.currentEpoch),
       validatorsBacking: vaultState.validatorsBacking,
       totalStakers: vaultState.totalStakers != null ? Number(vaultState.totalStakers) : null,
       lastUpdated: vaultState.updatedAt.toISOString(),
@@ -510,12 +529,15 @@ export class ReconciliationScheduler {
    * Check epoch freshness. If the indexed VaultState hasn't been updated
    * within `EPOCH_STALE_MULTIPLIER * epochDuration`, emit a warning.
    */
-  private checkEpochFreshness(indexed: IndexedState): ReconciliationCheck {
-    if (!indexed.lastUpdated) {
+  private checkEpochFreshness(
+    onChain: OnChainState,
+    indexed: IndexedState,
+  ): ReconciliationCheck {
+    if (!indexed.lastUpdated || indexed.currentEpoch == null) {
       return {
         name: 'epoch_freshness',
         status: 'SKIPPED',
-        message: 'No indexed state available — epoch freshness cannot be checked',
+        message: 'Indexed epoch state is unavailable — freshness cannot be checked',
       };
     }
 
@@ -523,27 +545,85 @@ export class ReconciliationScheduler {
     const ageMs = Date.now() - lastUpdated;
     const staleLimitMs =
       EPOCH_STALE_MULTIPLIER * this.epochDurationSeconds * 1000;
+    const epochLag = Math.max(onChain.protocolEpoch - indexed.currentEpoch, 0);
 
-    if (ageMs > staleLimitMs) {
+    if (epochLag > 0 || ageMs > staleLimitMs) {
+      const reasons: string[] = [];
+      if (epochLag > 0) {
+        reasons.push(
+          `indexed epoch ${indexed.currentEpoch} trails protocol epoch ${onChain.protocolEpoch} by ${epochLag}`,
+        );
+      }
+      if (ageMs > staleLimitMs) {
+        reasons.push(
+          `vault state is ${Math.round(ageMs / 1000)}s old which exceeds ${staleLimitMs / 1000}s`,
+        );
+      }
+
       void this.alertService.sendAlert(
         AlertSeverity.WARNING,
         AlertType.EPOCH_STALE,
-        `Vault state stale: last updated ${Math.round(ageMs / 1000)}s ago (limit: ${staleLimitMs / 1000}s)`,
-        { ageMs, staleLimitMs, lastUpdated: indexed.lastUpdated },
+        `Vault epoch freshness warning: ${reasons.join('; ')}`,
+        {
+          ageMs,
+          staleLimitMs,
+          lastUpdated: indexed.lastUpdated,
+          indexedEpoch: indexed.currentEpoch,
+          protocolEpoch: onChain.protocolEpoch,
+          epochLag,
+        },
       );
       return {
         name: 'epoch_freshness',
         status: 'WARNING',
-        message: `Vault state is ${Math.round(ageMs / 1000)}s old — exceeds ${staleLimitMs / 1000}s staleness limit`,
-        metadata: { ageMs, staleLimitMs },
+        message: reasons.join('; '),
+        metadata: {
+          ageMs,
+          staleLimitMs,
+          indexedEpoch: indexed.currentEpoch,
+          protocolEpoch: onChain.protocolEpoch,
+          epochLag,
+        },
       };
     }
 
     return {
       name: 'epoch_freshness',
       status: 'PASS',
-      message: `Vault state is ${Math.round(ageMs / 1000)}s old — within freshness limit`,
-      metadata: { ageMs, staleLimitMs },
+      message: `Indexed epoch ${indexed.currentEpoch} matches protocol epoch ${onChain.protocolEpoch} and state age is within freshness limits`,
+      metadata: {
+        ageMs,
+        staleLimitMs,
+        indexedEpoch: indexed.currentEpoch,
+        protocolEpoch: onChain.protocolEpoch,
+        epochLag,
+      },
+    };
+  }
+
+  private checkEpochResolution(onChain: OnChainState): ReconciliationCheck {
+    if (onChain.epochSource.includes('(fallback)')) {
+      return {
+        name: 'epoch_resolution',
+        status: 'WARNING',
+        message: `Authoritative epoch unavailable; using fallback source ${onChain.epochSource}`,
+        metadata: {
+          epoch: onChain.protocolEpoch,
+          latestHeight: onChain.latestHeight,
+          epochSource: onChain.epochSource,
+        },
+      };
+    }
+
+    return {
+      name: 'epoch_resolution',
+      status: 'PASS',
+      message: `Authoritative epoch resolved from ${onChain.epochSource}`,
+      metadata: {
+        epoch: onChain.protocolEpoch,
+        latestHeight: onChain.latestHeight,
+        epochSource: onChain.epochSource,
+      },
     };
   }
 
