@@ -167,7 +167,11 @@ export function getValidatorStatus(
   }
 
   const status = String(validator.status).toUpperCase();
-  if (status.includes("BONDED") || status === "3") {
+  if (
+    status === "BOND_STATUS_BONDED" ||
+    status === "BONDED" ||
+    status === "3"
+  ) {
     return "active";
   }
 

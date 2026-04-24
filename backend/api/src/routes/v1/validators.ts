@@ -113,7 +113,7 @@ function getLifecycleStatus(validator: Validator): UiStatus | 'inactive' {
   }
 
   const status = String(validator.status).toUpperCase();
-  if (status.includes('BONDED') || status === '3') {
+  if (status === 'BOND_STATUS_BONDED' || status === 'BONDED' || status === '3') {
     return 'active';
   }
 
@@ -136,11 +136,6 @@ function getTransparencyScore(validator: Validator): number {
   if (validator.website) score += 25;
   if (validator.details) score += 20;
   return score;
-}
-
-function isBondedValidator(validator: Validator): boolean {
-  const status = String(validator.status).toUpperCase();
-  return status === 'BOND_STATUS_BONDED' || status === 'BONDED' || status === '3';
 }
 
 function getMetadataNumber(
