@@ -90,11 +90,7 @@ function RiskPill({
   );
 }
 
-function FreshnessPill({
-  status,
-}: {
-  status: string | undefined;
-}) {
+function FreshnessPill({ status }: { status: string | undefined }) {
   const normalized = (status || "UNKNOWN").toUpperCase();
   const styles: Record<string, string> = {
     PASS: "border-emerald-500/20 bg-emerald-500/10 text-emerald-200",
@@ -114,9 +110,9 @@ function FreshnessPill({
 
 export default function ValidatorsPage() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<ValidatorLifecycleStatus | "all">(
-    "all",
-  );
+  const [statusFilter, setStatusFilter] = useState<
+    ValidatorLifecycleStatus | "all"
+  >("all");
   const [sortKey, setSortKey] = useState<SortKey>("stake");
 
   const { data, isLoading, isFetching, error, refetch } = useQuery({
@@ -145,10 +141,14 @@ export default function ValidatorsPage() {
 
   const rankedValidators = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
-    const denominator = canonicalTotalStake > 0n ? canonicalTotalStake : metrics.totalStake;
+    const denominator =
+      canonicalTotalStake > 0n ? canonicalTotalStake : metrics.totalStake;
 
     const filtered = validators.filter((validator) => {
-      if (statusFilter !== "all" && getValidatorStatus(validator) !== statusFilter) {
+      if (
+        statusFilter !== "all" &&
+        getValidatorStatus(validator) !== statusFilter
+      ) {
         return false;
       }
 
@@ -156,7 +156,12 @@ export default function ValidatorsPage() {
         return true;
       }
 
-      return [validator.moniker, validator.address, validator.website, validator.identity]
+      return [
+        validator.moniker,
+        validator.address,
+        validator.website,
+        validator.identity,
+      ]
         .filter(Boolean)
         .some((value) => value.toLowerCase().includes(normalizedQuery));
     });
@@ -199,7 +204,14 @@ export default function ValidatorsPage() {
       sharePercent: getValidatorSharePercent(validator, denominator),
       profileCompleteness: getProfileCompleteness(validator),
     }));
-  }, [canonicalTotalStake, metrics.totalStake, searchQuery, sortKey, statusFilter, validators]);
+  }, [
+    canonicalTotalStake,
+    metrics.totalStake,
+    searchQuery,
+    sortKey,
+    statusFilter,
+    validators,
+  ]);
 
   const freshnessAge = formatAgeSeconds(data?.protocol?.indexedStateAgeSeconds);
   const snapshotAge = formatAgeSeconds(
@@ -340,7 +352,9 @@ export default function ValidatorsPage() {
 
                   <select
                     value={sortKey}
-                    onChange={(event) => setSortKey(event.target.value as SortKey)}
+                    onChange={(event) =>
+                      setSortKey(event.target.value as SortKey)
+                    }
                     className="rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-cyan-500/40"
                   >
                     <option value="stake">Sort by stake</option>
@@ -358,8 +372,9 @@ export default function ValidatorsPage() {
                 </div>
               ) : error ? (
                 <div className="mt-6 rounded-2xl border border-red-500/20 bg-red-500/10 p-6 text-sm text-red-100">
-                  Validator data is currently unavailable. This page only renders
-                  live backend truth, so it will stay empty until the API is reachable.
+                  Validator data is currently unavailable. This page only
+                  renders live backend truth, so it will stay empty until the
+                  API is reachable.
                 </div>
               ) : rankedValidators.length === 0 ? (
                 <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-6 text-sm text-slate-400">
@@ -378,7 +393,12 @@ export default function ValidatorsPage() {
 
                   <div className="divide-y divide-slate-800 bg-slate-950/80">
                     {rankedValidators.map(
-                      ({ rank, validator, sharePercent, profileCompleteness }) => (
+                      ({
+                        rank,
+                        validator,
+                        sharePercent,
+                        profileCompleteness,
+                      }) => (
                         <Link
                           key={validator.address}
                           href={`/validators/${encodeURIComponent(validator.address)}`}
@@ -388,7 +408,9 @@ export default function ValidatorsPage() {
                             <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-500 md:hidden">
                               Rank
                             </p>
-                            <p className="text-lg font-semibold text-white">#{rank}</p>
+                            <p className="text-lg font-semibold text-white">
+                              #{rank}
+                            </p>
                           </div>
 
                           <div>
@@ -411,7 +433,8 @@ export default function ValidatorsPage() {
                                 </span>
                               ) : null}
                               <span className="rounded-full bg-slate-900 px-2.5 py-1">
-                                Stake {formatRawTokenAmount(validator.tokens)} raw
+                                Stake {formatRawTokenAmount(validator.tokens)}{" "}
+                                raw
                               </span>
                               {validator.risk?.reasons?.[0] ? (
                                 <span className="rounded-full bg-slate-900 px-2.5 py-1">
@@ -430,7 +453,9 @@ export default function ValidatorsPage() {
                                 level={validator.risk?.level ?? "guarded"}
                                 score={validator.risk?.score ?? 0}
                               />
-                              <FreshnessPill status={validator.risk?.freshnessStatus} />
+                              <FreshnessPill
+                                status={validator.risk?.freshnessStatus}
+                              />
                             </div>
                           </div>
 
@@ -504,7 +529,9 @@ export default function ValidatorsPage() {
                         {data.protocol.snapshotAt ? (
                           <p className="mt-2 text-xs text-cyan-200/80">
                             Snapshot{" "}
-                            {new Date(data.protocol.snapshotAt).toLocaleString()}
+                            {new Date(
+                              data.protocol.snapshotAt,
+                            ).toLocaleString()}
                           </p>
                         ) : null}
                       </div>
@@ -538,7 +565,11 @@ export default function ValidatorsPage() {
 
                 <div className="mt-5 space-y-3">
                   {[...rankedValidators]
-                    .sort((left, right) => (left.validator.risk?.score ?? 0) - (right.validator.risk?.score ?? 0))
+                    .sort(
+                      (left, right) =>
+                        (left.validator.risk?.score ?? 0) -
+                        (right.validator.risk?.score ?? 0),
+                    )
                     .slice(0, 5)
                     .map(({ validator, sharePercent }) => (
                       <Link

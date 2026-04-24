@@ -118,15 +118,17 @@ export default function ModelsPage() {
     staleTime: 30000,
   });
 
-  const models = useMemo(() => modelsQuery.data?.models ?? [], [modelsQuery.data?.models]);
+  const models = useMemo(
+    () => modelsQuery.data?.models ?? [],
+    [modelsQuery.data?.models],
+  );
 
   const metrics = useMemo(() => {
     const totalJobs = models.reduce((sum, model) => sum + model.totalJobs, 0);
     const verifiedCount = models.filter((model) => model.verified).length;
     const uniqueOwners = new Set(models.map((model) => model.owner)).size;
-    const architectureCount = new Set(
-      models.map((model) => model.architecture),
-    ).size;
+    const architectureCount = new Set(models.map((model) => model.architecture))
+      .size;
 
     return {
       totalJobs,
@@ -171,17 +173,11 @@ export default function ModelsPage() {
           return false;
         }
 
-        if (
-          verificationFilter === "verified" &&
-          !model.verified
-        ) {
+        if (verificationFilter === "verified" && !model.verified) {
           return false;
         }
 
-        if (
-          verificationFilter === "unverified" &&
-          model.verified
-        ) {
+        if (verificationFilter === "unverified" && model.verified) {
           return false;
         }
 
@@ -202,7 +198,13 @@ export default function ModelsPage() {
       }),
       sortKey,
     );
-  }, [categoryFilter, deferredSearchQuery, models, sortKey, verificationFilter]);
+  }, [
+    categoryFilter,
+    deferredSearchQuery,
+    models,
+    sortKey,
+    verificationFilter,
+  ]);
 
   const verifiedShare =
     models.length > 0 ? (metrics.verifiedCount / models.length) * 100 : 0;
@@ -230,10 +232,10 @@ export default function ModelsPage() {
                   Registry-backed model discovery with real usage context.
                 </h1>
                 <p className="mt-4 text-sm leading-7 text-slate-300 lg:text-base">
-                  This explorer is sourced from the live Cruzible model registry.
-                  It highlights immutable identifiers, published schemas,
-                  verification status, and observed job volume without inventing
-                  quality or trust scores.
+                  This explorer is sourced from the live Cruzible model
+                  registry. It highlights immutable identifiers, published
+                  schemas, verification status, and observed job volume without
+                  inventing quality or trust scores.
                 </p>
               </div>
 
@@ -553,9 +555,7 @@ export default function ModelsPage() {
                     <div key={entry.category}>
                       <div className="flex items-center justify-between text-sm text-slate-300">
                         <span>{formatModelCategory(entry.category)}</span>
-                        <span>
-                          {entry.count.toLocaleString()} models
-                        </span>
+                        <span>{entry.count.toLocaleString()} models</span>
                       </div>
                       <div className="mt-2 h-2 rounded-full bg-slate-900">
                         <div
@@ -578,8 +578,8 @@ export default function ModelsPage() {
 
                 <div className="mt-5 space-y-3 text-sm leading-6 text-slate-300">
                   <div className="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3">
-                    Counts, verification state, owners, schemas, and usage volume
-                    come directly from the live `/v1/models` response.
+                    Counts, verification state, owners, schemas, and usage
+                    volume come directly from the live `/v1/models` response.
                   </div>
                   <div className="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3">
                     The explorer deliberately avoids invented quality rankings,

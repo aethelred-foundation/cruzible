@@ -28,7 +28,11 @@ import {
 const PAGE_SIZE = 24;
 
 type StatusFilter = SealLifecycleStatus | "all";
-type SortKey = "created_at:desc" | "expires_at:asc" | "expires_at:desc" | "validators:desc";
+type SortKey =
+  | "created_at:desc"
+  | "expires_at:asc"
+  | "expires_at:desc"
+  | "validators:desc";
 
 function getStatusClasses(status: SealLifecycleStatus): string {
   const classes: Record<SealLifecycleStatus, string> = {
@@ -140,10 +144,14 @@ function SealCard({ seal }: { seal: SealListItem }) {
               Expiry
             </p>
             <p className="mt-2 text-sm font-medium text-white">
-              {seal.expiresAt ? formatRelativeTime(seal.expiresAt) : "No expiry"}
+              {seal.expiresAt
+                ? formatRelativeTime(seal.expiresAt)
+                : "No expiry"}
             </p>
             <p className="mt-1 text-xs text-slate-500">
-              {seal.expiresAt ? formatTimestamp(seal.expiresAt) : "Seal remains active until revoked or superseded."}
+              {seal.expiresAt
+                ? formatTimestamp(seal.expiresAt)
+                : "Seal remains active until revoked or superseded."}
             </p>
           </div>
         </div>
@@ -227,9 +235,10 @@ export default function SealsPage() {
     return seals;
   }, [deferredSearchQuery, sealsQuery.data?.seals, sortKey]);
 
-  const metrics = useMemo(() => buildSealMetrics(sealsQuery.data?.seals ?? []), [
-    sealsQuery.data?.seals,
-  ]);
+  const metrics = useMemo(
+    () => buildSealMetrics(sealsQuery.data?.seals ?? []),
+    [sealsQuery.data?.seals],
+  );
 
   const statusMix = useMemo(() => {
     const counts = {
@@ -278,10 +287,11 @@ export default function SealsPage() {
                   Proof lineage you can actually inspect.
                 </h1>
                 <p className="mt-4 text-sm leading-7 text-slate-300 lg:text-base">
-                  This page renders only live seal records from the Cruzible API.
-                  Status, commitment anchors, validator quorum, and job linkage
-                  are sourced from the registry, while search and summary cards
-                  are computed from the currently loaded result set.
+                  This page renders only live seal records from the Cruzible
+                  API. Status, commitment anchors, validator quorum, and job
+                  linkage are sourced from the registry, while search and
+                  summary cards are computed from the currently loaded result
+                  set.
                 </p>
               </div>
 
@@ -373,7 +383,9 @@ export default function SealsPage() {
 
                   <select
                     value={sortKey}
-                    onChange={(event) => setSortKey(event.target.value as SortKey)}
+                    onChange={(event) =>
+                      setSortKey(event.target.value as SortKey)
+                    }
                     className="rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-cyan-500/40"
                   >
                     <option value="created_at:desc">Newest first</option>
@@ -386,13 +398,15 @@ export default function SealsPage() {
 
               <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-500">
                 <span>
-                  Showing {visibleSeals.length} of {sealsQuery.data?.seals.length ?? 0} loaded
-                  entries
+                  Showing {visibleSeals.length} of{" "}
+                  {sealsQuery.data?.seals.length ?? 0} loaded entries
                 </span>
                 <span>
                   {sealsQuery.data?.total ?? 0} total records in the registry
                 </span>
-                <span>{metrics.expiringSoonCount} expire within 7 days in this slice</span>
+                <span>
+                  {metrics.expiringSoonCount} expire within 7 days in this slice
+                </span>
               </div>
 
               {sealsQuery.isLoading ? (
@@ -422,7 +436,9 @@ export default function SealsPage() {
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                    onClick={() =>
+                      setPage((current) => Math.max(1, current - 1))
+                    }
                     disabled={page === 1}
                     className="rounded-xl border border-slate-700 px-4 py-2 text-sm text-slate-200 transition-colors hover:border-slate-500 disabled:cursor-not-allowed disabled:opacity-50"
                   >
@@ -455,13 +471,13 @@ export default function SealsPage() {
                     come directly from the live registry API.
                   </div>
                   <div className="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3">
-                    Summary cards are derived from the loaded result set, not from
-                    invented protocol-wide estimates.
+                    Summary cards are derived from the loaded result set, not
+                    from invented protocol-wide estimates.
                   </div>
                   <div className="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3">
                     Detail pages prefer the first-class seal detail endpoint and
-                    fall back only to a live registry lookup when that endpoint is
-                    unavailable.
+                    fall back only to a live registry lookup when that endpoint
+                    is unavailable.
                   </div>
                 </div>
               </GlassCard>
@@ -488,20 +504,22 @@ export default function SealsPage() {
                     return (
                       <div key={status}>
                         <div className="mb-2 flex items-center justify-between text-sm">
-                          <span className="capitalize text-slate-300">{status}</span>
+                          <span className="capitalize text-slate-300">
+                            {status}
+                          </span>
                           <span className="text-slate-500">{count}</span>
                         </div>
                         <div className="h-2 rounded-full bg-slate-900">
                           <div
-                            className={`h-2 rounded-full ${getStatusClasses(
-                              status,
-                            ).includes("emerald")
-                              ? "bg-emerald-400"
-                              : getStatusClasses(status).includes("rose")
-                                ? "bg-rose-400"
-                                : getStatusClasses(status).includes("amber")
-                                  ? "bg-amber-400"
-                                  : "bg-cyan-400"}`}
+                            className={`h-2 rounded-full ${
+                              getStatusClasses(status).includes("emerald")
+                                ? "bg-emerald-400"
+                                : getStatusClasses(status).includes("rose")
+                                  ? "bg-rose-400"
+                                  : getStatusClasses(status).includes("amber")
+                                    ? "bg-amber-400"
+                                    : "bg-cyan-400"
+                            }`}
                             style={{ width }}
                           />
                         </div>
@@ -525,8 +543,8 @@ export default function SealsPage() {
                     </h2>
                     <p className="mt-3 text-sm leading-7 text-slate-300">
                       Until the API exposes protocol-level seal aggregates, this
-                      page reports exactly what is loaded and avoids pretending it
-                      has more coverage than it does.
+                      page reports exactly what is loaded and avoids pretending
+                      it has more coverage than it does.
                     </p>
                     <div className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-cyan-200">
                       <Clock3 className="h-4 w-4" />

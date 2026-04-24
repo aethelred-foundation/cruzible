@@ -173,7 +173,8 @@ function getLiveVaultSnapshot(vaultState: VaultState) {
       : null;
   const apy =
     vaultState.effectiveAPY > 0n ? Number(vaultState.effectiveAPY) / 100 : null;
-  const epoch = vaultState.currentEpoch > 0n ? Number(vaultState.currentEpoch) : null;
+  const epoch =
+    vaultState.currentEpoch > 0n ? Number(vaultState.currentEpoch) : null;
 
   return {
     tvl,
@@ -651,10 +652,7 @@ function HeroSection({
                   ? "Live vault state"
                   : "Awaiting live state"}
               </Badge>
-              <Badge variant="neutral">
-                Epoch #
-                {epoch ?? "n/a"}
-              </Badge>
+              <Badge variant="neutral">Epoch #{epoch ?? "n/a"}</Badge>
             </div>
             <h1 className="text-4xl lg:text-5xl font-bold text-white tracking-tight mb-2">
               AethelVault
@@ -860,7 +858,9 @@ function OverviewTab({
             <div>
               <p className="text-xs text-slate-500 mb-1">Current Value</p>
               <p className="text-xl font-bold text-emerald-400 tabular-nums">
-                {positionValue == null ? "Unavailable" : fmtNum(positionValue, 2)}
+                {positionValue == null
+                  ? "Unavailable"
+                  : fmtNum(positionValue, 2)}
               </p>
               <p className="text-xs text-slate-500">AETHEL</p>
             </div>
@@ -1086,7 +1086,11 @@ function OverviewTab({
                     : `${controlPlane.warning_count} warning(s) were emitted in the latest public snapshot.`
                   : "Warning posture will appear once the control plane is reachable."
               }
-              tone={controlPlane && controlPlane.warning_count > 0 ? "warning" : "neutral"}
+              tone={
+                controlPlane && controlPlane.warning_count > 0
+                  ? "warning"
+                  : "neutral"
+              }
             />
           </div>
 
@@ -1138,10 +1142,10 @@ function OverviewTab({
               Historical surfaces are gated
             </h3>
             <p className="mt-2 text-sm leading-7 text-slate-300">
-              Cruzible no longer renders seeded activity feeds, fake exchange-rate
-              charts, or fabricated reward balances inside the vault. Those
-              surfaces will return only after the indexed history pipeline is live
-              and publicly defensible.
+              Cruzible no longer renders seeded activity feeds, fake
+              exchange-rate charts, or fabricated reward balances inside the
+              vault. Those surfaces will return only after the indexed history
+              pipeline is live and publicly defensible.
             </p>
             <div className="mt-5 space-y-3">
               <VaultTruthNotice
@@ -1801,7 +1805,9 @@ function UnstakeTab() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [success, setSuccess] = useState(false);
   const snapshot = getLiveVaultSnapshot(vaultState);
-  const [withdrawalClock, setWithdrawalClock] = useState(() => Date.now() / 1000);
+  const [withdrawalClock, setWithdrawalClock] = useState(
+    () => Date.now() / 1000,
+  );
 
   const numAmt = parseFloat(amount) || 0;
   const maxBal = wallet.connected ? wallet.stBalance : 0;
@@ -2030,14 +2036,14 @@ function UnstakeTab() {
                       <span className="font-semibold">
                         {fmtNum(numAmt, 2)} stAETHEL
                       </span>
-                    ?
-                  </p>
-                  <p className="text-xs text-amber-300/70 mt-1">
-                    {receiveAethel == null
-                      ? "Live exchange rate is unavailable, so the receive preview is withheld."
-                      : `You will receive ${receiveAethel.toFixed(2)} AETHEL after 21-day cooldown`}
-                  </p>
-                </div>
+                      ?
+                    </p>
+                    <p className="text-xs text-amber-300/70 mt-1">
+                      {receiveAethel == null
+                        ? "Live exchange rate is unavailable, so the receive preview is withheld."
+                        : `You will receive ${receiveAethel.toFixed(2)} AETHEL after 21-day cooldown`}
+                    </p>
+                  </div>
                   <div className="flex gap-3">
                     <button
                       onClick={() => setShowConfirm(false)}
@@ -2140,83 +2146,86 @@ function UnstakeTab() {
               </thead>
               <tbody className="divide-y divide-slate-700/20">
                 {requests.map((req) => (
-                <tr
-                  key={req.id}
-                  className="hover:bg-slate-700/20 transition-colors"
-                >
-                  <td className="px-6 py-4 text-slate-300 font-mono text-xs">
-                    {req.id.toUpperCase()}
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-white font-medium tabular-nums">
-                      {fmtNum(req.amount, 2)} AETHEL
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {fmtNum(req.stAethelAmount, 2)} stAETHEL
-                    </p>
-                  </td>
-                  <td className="px-6 py-4 text-slate-300">{req.startDate}</td>
-                  <td className="px-6 py-4 text-slate-300">
-                    {req.completionDate}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="w-32">
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="text-slate-400">
-                          {req.daysRemaining > 0
-                            ? `${req.daysRemaining}d left`
-                            : "Complete"}
-                        </span>
-                        <span className="text-slate-400">
-                          {Math.round(
-                            ((req.totalDays - req.daysRemaining) /
-                              req.totalDays) *
-                              100,
-                          )}
-                          %
-                        </span>
+                  <tr
+                    key={req.id}
+                    className="hover:bg-slate-700/20 transition-colors"
+                  >
+                    <td className="px-6 py-4 text-slate-300 font-mono text-xs">
+                      {req.id.toUpperCase()}
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-white font-medium tabular-nums">
+                        {fmtNum(req.amount, 2)} AETHEL
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {fmtNum(req.stAethelAmount, 2)} stAETHEL
+                      </p>
+                    </td>
+                    <td className="px-6 py-4 text-slate-300">
+                      {req.startDate}
+                    </td>
+                    <td className="px-6 py-4 text-slate-300">
+                      {req.completionDate}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="w-32">
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-slate-400">
+                            {req.daysRemaining > 0
+                              ? `${req.daysRemaining}d left`
+                              : "Complete"}
+                          </span>
+                          <span className="text-slate-400">
+                            {Math.round(
+                              ((req.totalDays - req.daysRemaining) /
+                                req.totalDays) *
+                                100,
+                            )}
+                            %
+                          </span>
+                        </div>
+                        <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${req.status === "ready" ? "bg-emerald-500" : "bg-amber-500"}`}
+                            style={{
+                              width: `${((req.totalDays - req.daysRemaining) / req.totalDays) * 100}%`,
+                            }}
+                          />
+                        </div>
                       </div>
-                      <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${req.status === "ready" ? "bg-emerald-500" : "bg-amber-500"}`}
-                          style={{
-                            width: `${((req.totalDays - req.daysRemaining) / req.totalDays) * 100}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-                        req.status === "ready"
-                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                          : req.status === "claimed"
-                            ? "bg-slate-600/30 text-slate-400"
-                            : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                      }`}
-                    >
-                      {req.status === "ready" && (
-                        <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-                      )}
-                      {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    {req.status === "ready" ? (
-                      <button
-                        onClick={() => handleClaim(req.id)}
-                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition-colors animate-pulse"
+                    </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+                          req.status === "ready"
+                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                            : req.status === "claimed"
+                              ? "bg-slate-600/30 text-slate-400"
+                              : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                        }`}
                       >
-                        Claim
-                      </button>
-                    ) : req.status === "claimed" ? (
-                      <span className="text-xs text-slate-500">Claimed</span>
-                    ) : (
-                      <span className="text-xs text-slate-500">Waiting</span>
-                    )}
-                  </td>
-                </tr>
+                        {req.status === "ready" && (
+                          <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+                        )}
+                        {req.status.charAt(0).toUpperCase() +
+                          req.status.slice(1)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      {req.status === "ready" ? (
+                        <button
+                          onClick={() => handleClaim(req.id)}
+                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition-colors animate-pulse"
+                        >
+                          Claim
+                        </button>
+                      ) : req.status === "claimed" ? (
+                        <span className="text-xs text-slate-500">Claimed</span>
+                      ) : (
+                        <span className="text-xs text-slate-500">Waiting</span>
+                      )}
+                    </td>
+                  </tr>
                 ))}
               </tbody>
             </table>
@@ -2253,7 +2262,8 @@ function RewardsTab({
     return [7, 30, 90, 365].map((days) => {
       const years = days / 365;
       const simple = principal * (apy / 100) * years;
-      const compound = principal * (Math.pow(1 + apy / 100 / 12, years * 12) - 1);
+      const compound =
+        principal * (Math.pow(1 + apy / 100 / 12, years * 12) - 1);
       return {
         period:
           days === 365 ? "1 year" : days === 30 ? "30 days" : `${days} days`,
@@ -2395,8 +2405,8 @@ function RewardsTab({
                 Live reward projections
               </h3>
               <p className="text-sm text-slate-400 mt-1">
-                Forward-looking curves derived from the live effective APY, not a
-                seeded reward ledger.
+                Forward-looking curves derived from the live effective APY, not
+                a seeded reward ledger.
               </p>
             </div>
             <button
@@ -2477,7 +2487,9 @@ function RewardsTab({
                   <tbody className="divide-y divide-slate-800">
                     {projectionRows.map((row) => (
                       <tr key={row.period}>
-                        <td className="px-4 py-3 text-slate-300">{row.period}</td>
+                        <td className="px-4 py-3 text-slate-300">
+                          {row.period}
+                        </td>
                         <td className="px-4 py-3 text-right font-medium text-emerald-400">
                           +{fmtNum(row.projected, 2)} AETHEL
                         </td>
@@ -2541,7 +2553,8 @@ function AnalyticsTab({
   const statusLabel =
     !controlPlane && !snapshot.hasAuthoritativeState
       ? "Unavailable"
-      : controlPlane?.warning_count || controlPlane?.epoch_source?.includes("fallback")
+      : controlPlane?.warning_count ||
+          controlPlane?.epoch_source?.includes("fallback")
         ? "Attention"
         : "Healthy";
 
@@ -2556,7 +2569,9 @@ function AnalyticsTab({
         />
         <StatCard
           label="Effective APY"
-          value={snapshot.apy == null ? "Unavailable" : `${snapshot.apy.toFixed(2)}%`}
+          value={
+            snapshot.apy == null ? "Unavailable" : `${snapshot.apy.toFixed(2)}%`
+          }
           sub="Vault contract"
           icon={<TrendingUp className="w-5 h-5" />}
         />
@@ -2589,9 +2604,9 @@ function AnalyticsTab({
           </h3>
           <p className="mt-2 text-sm leading-7 text-slate-300">
             This analytics surface now prioritizes public trust evidence: latest
-            epoch capture, warning posture, stake snapshot completeness, and hash
-            lineage. Decorative charts stay hidden until indexed history becomes
-            auditable.
+            epoch capture, warning posture, stake snapshot completeness, and
+            hash lineage. Decorative charts stay hidden until indexed history
+            becomes auditable.
           </p>
 
           <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -2717,9 +2732,9 @@ function AnalyticsTab({
             </h3>
             <div className="mt-4 space-y-3 text-sm leading-6 text-slate-300">
               <p>
-                Cruzible’s moat should be provable trust: public freshness, solvency
-                evidence, validator-universe lineage, and downloadable audit
-                trails.
+                Cruzible’s moat should be provable trust: public freshness,
+                solvency evidence, validator-universe lineage, and downloadable
+                audit trails.
               </p>
               <p>
                 Once historical pipelines are live, they should inherit the same
@@ -2796,7 +2811,9 @@ export default function VaultPage() {
           )}
           {activeTab === "stake" && <StakeTab />}
           {activeTab === "unstake" && <UnstakeTab />}
-          {activeTab === "rewards" && <RewardsTab controlPlane={controlPlane} />}
+          {activeTab === "rewards" && (
+            <RewardsTab controlPlane={controlPlane} />
+          )}
           {activeTab === "analytics" && (
             <AnalyticsTab controlPlane={controlPlane} />
           )}

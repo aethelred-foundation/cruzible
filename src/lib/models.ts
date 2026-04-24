@@ -181,10 +181,7 @@ function normalizeUsageStats(
           count,
         };
       })
-      .filter(
-        (entry): entry is ModelProofBreakdown =>
-          entry !== null,
-      ),
+      .filter((entry): entry is ModelProofBreakdown => entry !== null),
   };
 }
 
@@ -349,7 +346,10 @@ export async function fetchModelDetail(
       sizeBytes: coerceString(payload.sizeBytes) ?? null,
       updatedAt: coerceString(payload.updatedAt) ?? null,
       usage: normalizeUsageStats(
-        payload.usage ?? payload.usageStats ?? payload.stats ?? payload.telemetry,
+        payload.usage ??
+          payload.usageStats ??
+          payload.stats ??
+          payload.telemetry,
         registry.totalJobs,
       ),
       lineage: normalizeLineageRecord(payload.lineage),

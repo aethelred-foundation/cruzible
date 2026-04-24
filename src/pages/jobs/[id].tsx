@@ -101,7 +101,9 @@ function DetailRow({
         >
           {value}
         </p>
-        {copyValue ? <CopyButton text={copyValue} stopPropagation={false} /> : null}
+        {copyValue ? (
+          <CopyButton text={copyValue} stopPropagation={false} />
+        ) : null}
       </div>
     </div>
   );
@@ -129,7 +131,10 @@ export default function JobDetailPage() {
         <header className="border-b border-gray-200 bg-white">
           <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
             <div className="flex items-center gap-4">
-              <Link href="/jobs" className="text-indigo-600 hover:text-indigo-700">
+              <Link
+                href="/jobs"
+                className="text-indigo-600 hover:text-indigo-700"
+              >
                 ← Back to Jobs
               </Link>
               <h1 className="text-xl font-bold text-gray-900">Job Detail</h1>
@@ -138,7 +143,9 @@ export default function JobDetailPage() {
               onClick={() => refetch()}
               className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
-              <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+              <RefreshCw
+                className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
+              />
               Refresh
             </button>
           </div>
@@ -151,7 +158,9 @@ export default function JobDetailPage() {
             </div>
           ) : error || !data ? (
             <div className="rounded-2xl border border-red-200 bg-red-50 p-8">
-              <h2 className="text-lg font-semibold text-red-900">Job unavailable</h2>
+              <h2 className="text-lg font-semibold text-red-900">
+                Job unavailable
+              </h2>
               <p className="mt-2 text-sm text-red-700">
                 {error instanceof Error
                   ? error.message
@@ -224,9 +233,12 @@ export default function JobDetailPage() {
               <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Model linkage</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Model linkage
+                    </h3>
                     <p className="mt-1 text-sm text-gray-600">
-                      Navigate to the registered model hash associated with this job.
+                      Navigate to the registered model hash associated with this
+                      job.
                     </p>
                   </div>
                   <Link

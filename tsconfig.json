@@ -33,9 +33,5 @@
     "src/**/*.tsx",
     "src/**/*.d.ts"
   ],
-  "exclude": [
-    "node_modules",
-    "backend",
-    "sdk"
-  ]
+  "exclude": ["node_modules", "backend", "sdk"]
 }

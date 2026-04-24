@@ -25,11 +25,7 @@ import {
   type ReconciliationScorecard,
 } from "@/lib/reconciliation";
 
-function StatusPill({
-  status,
-}: {
-  status: string | undefined;
-}) {
+function StatusPill({ status }: { status: string | undefined }) {
   const normalized = (status || "UNKNOWN").toUpperCase();
   const styles: Record<string, string> = {
     OK: "border-emerald-500/20 bg-emerald-500/10 text-emerald-200",
@@ -115,13 +111,7 @@ function SignalCard({
   );
 }
 
-function EvidenceRow({
-  label,
-  value,
-}: {
-  label: string;
-  value?: string;
-}) {
+function EvidenceRow({ label, value }: { label: string; value?: string }) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3">
       <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-500">
@@ -171,7 +161,8 @@ export default function ReconciliationPage() {
     (liveDocumentQuery.isLoading && !liveDocument);
   const error =
     (scorecardQuery.error instanceof Error && scorecardQuery.error.message) ||
-    (liveDocumentQuery.error instanceof Error && liveDocumentQuery.error.message) ||
+    (liveDocumentQuery.error instanceof Error &&
+      liveDocumentQuery.error.message) ||
     null;
 
   return (
@@ -374,7 +365,8 @@ export default function ReconciliationPage() {
                                       {discrepancy.affected_shares} shares
                                     </span>
                                   ) : null}
-                                  {typeof discrepancy.impact_bps === "number" ? (
+                                  {typeof discrepancy.impact_bps ===
+                                  "number" ? (
                                     <span className="rounded-full bg-slate-950 px-2.5 py-1">
                                       {discrepancy.impact_bps} bps impact
                                     </span>
@@ -397,7 +389,8 @@ export default function ReconciliationPage() {
                         ))
                       ) : (
                         <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
-                          No structured discrepancies were returned for the live capture.
+                          No structured discrepancies were returned for the live
+                          capture.
                         </div>
                       )}
                     </div>
@@ -458,8 +451,8 @@ export default function ReconciliationPage() {
                           2. Copy lineage hashes
                         </p>
                         <p className="mt-2 text-sm leading-6 text-slate-300">
-                          Cross-check the universe hash, stake snapshot hash, and
-                          registry roots against your own recomputation.
+                          Cross-check the universe hash, stake snapshot hash,
+                          and registry roots against your own recomputation.
                         </p>
                       </div>
                       <div className="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-4">
@@ -496,21 +489,31 @@ export default function ReconciliationPage() {
                       />
                       <EvidenceRow
                         label="Stake snapshot hash"
-                        value={liveDocument?.stake_snapshot?.observed?.stake_snapshot_hash}
+                        value={
+                          liveDocument?.stake_snapshot?.observed
+                            ?.stake_snapshot_hash
+                        }
                       />
                       <EvidenceRow
                         label="Staker registry root"
-                        value={liveDocument?.stake_snapshot?.observed?.staker_registry_root}
+                        value={
+                          liveDocument?.stake_snapshot?.observed
+                            ?.staker_registry_root
+                        }
                       />
                       <EvidenceRow
                         label="Delegation registry root"
                         value={
-                          liveDocument?.stake_snapshot?.observed?.delegation_registry_root
+                          liveDocument?.stake_snapshot?.observed
+                            ?.delegation_registry_root
                         }
                       />
                       <EvidenceRow
                         label="Delegation payload"
-                        value={liveDocument?.stake_snapshot?.observed?.delegation_payload_hex}
+                        value={
+                          liveDocument?.stake_snapshot?.observed
+                            ?.delegation_payload_hex
+                        }
                       />
                     </div>
                   </GlassCard>
@@ -521,7 +524,10 @@ export default function ReconciliationPage() {
                     </p>
                     <div className="mt-5 space-y-3 text-sm text-slate-300">
                       <div className="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3">
-                        Captured at {new Date(scorecard.evidence.captured_at).toLocaleString()}
+                        Captured at{" "}
+                        {new Date(
+                          scorecard.evidence.captured_at,
+                        ).toLocaleString()}
                       </div>
                       <div className="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3">
                         Chain height {scorecard.evidence.chain_height}
@@ -574,7 +580,8 @@ export default function ReconciliationPage() {
                         ))
                       ) : (
                         <div className="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3 text-sm text-slate-400">
-                          Immutable reconciliation history has not been captured yet.
+                          Immutable reconciliation history has not been captured
+                          yet.
                         </div>
                       )}
                     </div>
@@ -597,7 +604,8 @@ export default function ReconciliationPage() {
                         ))
                       ) : (
                         <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
-                          No public warnings were returned for the current capture.
+                          No public warnings were returned for the current
+                          capture.
                         </div>
                       )}
                     </div>

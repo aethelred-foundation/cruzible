@@ -94,19 +94,15 @@ function ValueRow({
         >
           {value || "Not provided"}
         </p>
-        {copyValue ? <CopyButton text={copyValue} stopPropagation={false} /> : null}
+        {copyValue ? (
+          <CopyButton text={copyValue} stopPropagation={false} />
+        ) : null}
       </div>
     </div>
   );
 }
 
-function EmptyState({
-  title,
-  detail,
-}: {
-  title: string;
-  detail: string;
-}) {
+function EmptyState({ title, detail }: { title: string; detail: string }) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 text-sm text-slate-400">
       <p className="font-medium text-white">{title}</p>
@@ -115,7 +111,10 @@ function EmptyState({
   );
 }
 
-function getRevocationValue(seal: SealDetailRecord): { value: string; detail: string } {
+function getRevocationValue(seal: SealDetailRecord): {
+  value: string;
+  detail: string;
+} {
   if (seal.revokedAt) {
     return {
       value: "Revoked",
@@ -169,7 +168,9 @@ export default function SealDetailPage() {
 
   const siblingSeals = useMemo(
     () =>
-      (relatedSealsQuery.data?.seals ?? []).filter((seal) => seal.id !== sealId),
+      (relatedSealsQuery.data?.seals ?? []).filter(
+        (seal) => seal.id !== sealId,
+      ),
     [relatedSealsQuery.data?.seals, sealId],
   );
 
@@ -212,8 +213,8 @@ export default function SealDetailPage() {
               </h1>
               <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
                 Live proof context for a single seal record. This page prefers
-                the first-class detail endpoint and falls back to a live registry
-                lookup only when the detail endpoint is unavailable.
+                the first-class detail endpoint and falls back to a live
+                registry lookup only when the detail endpoint is unavailable.
               </p>
             </div>
 
@@ -274,7 +275,8 @@ export default function SealDetailPage() {
                     <div className="flex flex-wrap items-center gap-3">
                       <StatusPill status={seal.status} />
                       <span className="rounded-full border border-slate-700 bg-slate-900 px-2.5 py-1 text-xs font-medium text-slate-300">
-                        {seal.validators.length || seal.validatorCount} validators
+                        {seal.validators.length || seal.validatorCount}{" "}
+                        validators
                       </span>
                       <span className="rounded-full border border-slate-700 bg-slate-900 px-2.5 py-1 text-xs font-medium text-slate-300">
                         Created {formatRelativeTime(seal.createdAt)}
@@ -489,7 +491,9 @@ export default function SealDetailPage() {
                           />
                           <ValueRow
                             label="TEE timestamp"
-                            value={formatTimestamp(seal.proofLineage.teeTimestamp)}
+                            value={formatTimestamp(
+                              seal.proofLineage.teeTimestamp,
+                            )}
                           />
                         </div>
 
@@ -497,24 +501,34 @@ export default function SealDetailPage() {
                           <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                             <MetricCard
                               label="CPU Cycles"
-                              value={seal.proofLineage.computeMetrics.cpuCycles || "n/a"}
+                              value={
+                                seal.proofLineage.computeMetrics.cpuCycles ||
+                                "n/a"
+                              }
                               detail="Compute metrics returned by proof lineage."
                             />
                             <MetricCard
                               label="Memory Used"
-                              value={seal.proofLineage.computeMetrics.memoryUsed || "n/a"}
+                              value={
+                                seal.proofLineage.computeMetrics.memoryUsed ||
+                                "n/a"
+                              }
                               detail="Memory footprint reported alongside the proof."
                             />
                             <MetricCard
                               label="Compute Time"
                               value={
-                                seal.proofLineage.computeMetrics.computeTimeMs || "n/a"
+                                seal.proofLineage.computeMetrics
+                                  .computeTimeMs || "n/a"
                               }
                               detail="Milliseconds of measured compute time."
                             />
                             <MetricCard
                               label="Energy"
-                              value={seal.proofLineage.computeMetrics.energyMj || "n/a"}
+                              value={
+                                seal.proofLineage.computeMetrics.energyMj ||
+                                "n/a"
+                              }
                               detail="Energy usage in megajoules when reported."
                             />
                           </div>
@@ -625,7 +639,9 @@ export default function SealDetailPage() {
                       Lifecycle events
                     </h2>
 
-                    {seal.revokedAt || seal.revokedBy || seal.revocationReason ? (
+                    {seal.revokedAt ||
+                    seal.revokedBy ||
+                    seal.revocationReason ? (
                       <div className="mt-5 space-y-4">
                         <div className="inline-flex items-center gap-2 rounded-full border border-rose-500/20 bg-rose-500/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-rose-200">
                           <XCircle className="h-3.5 w-3.5" />

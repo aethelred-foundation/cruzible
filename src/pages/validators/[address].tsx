@@ -115,7 +115,9 @@ export default function ValidatorDetailPage() {
 
   const validator = validatorQuery.data?.validator;
   const protocol = validatorQuery.data?.protocol;
-  const canonicalTotalStake = parseTokenAmount(protocol?.totalBondedTokens ?? "0");
+  const canonicalTotalStake = parseTokenAmount(
+    protocol?.totalBondedTokens ?? "0",
+  );
   const sharePercent = validator
     ? getValidatorSharePercent(validator, canonicalTotalStake)
     : 0;
@@ -127,7 +129,9 @@ export default function ValidatorDetailPage() {
       <SEOHead
         title={validator?.moniker || "Validator Detail"}
         description="Inspect a live validator profile, canonical universe context, and explainable operator-risk evidence for the Cruzible validator set."
-        path={address ? `/validators/${encodeURIComponent(address)}` : "/validators"}
+        path={
+          address ? `/validators/${encodeURIComponent(address)}` : "/validators"
+        }
       />
 
       <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -150,9 +154,9 @@ export default function ValidatorDetailPage() {
                 {validator?.moniker || "Validator detail"}
               </h1>
               <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
-                One canonical payload now carries operator metadata, bonded-universe
-                lineage, freshness posture, and explainable risk components for
-                this validator.
+                One canonical payload now carries operator metadata,
+                bonded-universe lineage, freshness posture, and explainable risk
+                components for this validator.
               </p>
             </div>
 
@@ -199,7 +203,10 @@ export default function ValidatorDetailPage() {
                       {validator.address}
                     </p>
                     <div className="mt-3">
-                      <CopyButton text={validator.address} stopPropagation={false} />
+                      <CopyButton
+                        text={validator.address}
+                        stopPropagation={false}
+                      />
                     </div>
                   </div>
 
@@ -371,10 +378,12 @@ export default function ValidatorDetailPage() {
                       </div>
                       <div className="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3">
                         Reconciliation status:{" "}
-                        {validator.risk?.evidence.reconciliationStatus ?? "UNKNOWN"}
+                        {validator.risk?.evidence.reconciliationStatus ??
+                          "UNKNOWN"}
                       </div>
                       <div className="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3">
-                        Epoch lag: {validator.risk?.evidence.epochLag ?? "Unavailable"}
+                        Epoch lag:{" "}
+                        {validator.risk?.evidence.epochLag ?? "Unavailable"}
                       </div>
                     </div>
                   </GlassCard>
@@ -391,7 +400,8 @@ export default function ValidatorDetailPage() {
                           </p>
                           {protocol.snapshotAt ? (
                             <p className="mt-2 text-xs text-cyan-200/80">
-                              Snapshot {new Date(protocol.snapshotAt).toLocaleString()}
+                              Snapshot{" "}
+                              {new Date(protocol.snapshotAt).toLocaleString()}
                             </p>
                           ) : null}
                         </div>

@@ -189,7 +189,9 @@ export async function fetchReconciliationScorecard(): Promise<ReconciliationScor
 export async function fetchReconciliationHistory(
   limit = 10,
 ): Promise<ReconciliationHistoryEntry[]> {
-  const response = await fetch(`${API_URL}/reconciliation/history?limit=${limit}`);
+  const response = await fetch(
+    `${API_URL}/reconciliation/history?limit=${limit}`,
+  );
   if (!response.ok) {
     throw new Error(
       `Failed to load reconciliation history: HTTP ${response.status}`,

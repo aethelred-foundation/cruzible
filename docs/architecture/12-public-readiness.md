@@ -54,6 +54,7 @@ This document is not a launch promise. It is a snapshot-aligned record of:
 - Define an operator-safe JWT issuance/bootstrap workflow for protected routes such as `/v1/alerts` and `/v1/reconciliation/status`.
 - Replace or augment in-memory alert history and cache behavior if multi-instance persistence is required.
 - Document and automate the production migration path beyond `prisma migrate dev`.
+- Track the temporary Next.js dependency exception in `docs/security/dependency-exceptions.md` until upstream stops bundling `postcss < 8.5.10`.
 
 ## 6. Operator Assumptions That Should Be Treated As Explicit
 
@@ -78,4 +79,5 @@ This document is not a launch promise. It is a snapshot-aligned record of:
 - [backend/README.md](../../backend/README.md)
 - [docs/ops/runbook.md](../ops/runbook.md)
 - [docs/ops/environment-reference.md](../ops/environment-reference.md)
+- [docs/security/dependency-exceptions.md](../security/dependency-exceptions.md)
 - [docs/architecture/11-benchmarking-slos.md](11-benchmarking-slos.md)

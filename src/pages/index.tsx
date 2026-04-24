@@ -14,7 +14,11 @@ import {
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { Footer, TopNav } from "@/components/SharedComponents";
-import { CopyButton, GlassCard, SectionHeader } from "@/components/PagePrimitives";
+import {
+  CopyButton,
+  GlassCard,
+  SectionHeader,
+} from "@/components/PagePrimitives";
 import { useApp } from "@/contexts/AppContext";
 import {
   fetchLiveReconciliation,
@@ -184,11 +188,11 @@ export default function HomePage() {
                   Live staking telemetry, proof coverage, and validator lineage.
                 </h1>
                 <p className="mt-4 text-sm leading-7 text-slate-300 lg:text-base">
-                  Cruzible is being hardened into a world-class staking product by
-                  showing only what the protocol can defend: live vault state,
-                  reconciliation hashes, validator concentration, and freshness
-                  posture. Decorative explorer feeds and seeded analytics are being
-                  phased out in favor of public evidence.
+                  Cruzible is being hardened into a world-class staking product
+                  by showing only what the protocol can defend: live vault
+                  state, reconciliation hashes, validator concentration, and
+                  freshness posture. Decorative explorer feeds and seeded
+                  analytics are being phased out in favor of public evidence.
                 </p>
               </div>
 
@@ -231,17 +235,25 @@ export default function HomePage() {
           <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <MetricCard
               label="Latest Block"
-              value={realTime.blockHeight > 0 ? String(realTime.blockHeight) : "Unavailable"}
+              value={
+                realTime.blockHeight > 0
+                  ? String(realTime.blockHeight)
+                  : "Unavailable"
+              }
               detail="Live block height from the current public chain connection."
             />
             <MetricCard
               label="Protocol Epoch"
-              value={realTime.epoch > 0 ? String(realTime.epoch) : "Unavailable"}
+              value={
+                realTime.epoch > 0 ? String(realTime.epoch) : "Unavailable"
+              }
               detail={`Source: ${realTime.epochSource || "unavailable"}`}
             />
             <MetricCard
               label="Control-Plane Warnings"
-              value={String(controlPlane?.warning_count ?? realTime.reconciliationWarnings)}
+              value={String(
+                controlPlane?.warning_count ?? realTime.reconciliationWarnings,
+              )}
               detail={
                 controlPlane
                   ? `Latest public capture ${formatDateTime(controlPlane.captured_at)}`
@@ -318,8 +330,9 @@ export default function HomePage() {
                     Validator Intelligence
                   </h3>
                   <p className="mt-2 text-sm leading-6 text-slate-400">
-                    Concentration, identity coverage, commission posture, and live
-                    validator status without invented uptime or APY rankings.
+                    Concentration, identity coverage, commission posture, and
+                    live validator status without invented uptime or APY
+                    rankings.
                   </p>
                   <div className="mt-4 space-y-2 text-sm text-slate-300">
                     <div className="flex justify-between gap-3">
@@ -353,9 +366,10 @@ export default function HomePage() {
                     Live Vault Actions
                   </h3>
                   <p className="mt-2 text-sm leading-6 text-slate-400">
-                    Staking, unstaking, live reward-proof claiming, and live vault
-                    state have been hardened to fail closed when telemetry is not
-                    available instead of rendering seeded balances or fake queues.
+                    Staking, unstaking, live reward-proof claiming, and live
+                    vault state have been hardened to fail closed when telemetry
+                    is not available instead of rendering seeded balances or
+                    fake queues.
                   </p>
                 </GlassCard>
               </div>
@@ -475,7 +489,10 @@ export default function HomePage() {
                           </span>
                           <span className="rounded-full bg-slate-950 px-2.5 py-1">
                             Commission{" "}
-                            {getCommissionPercent(validator.commission.rate).toFixed(2)}%
+                            {getCommissionPercent(
+                              validator.commission.rate,
+                            ).toFixed(2)}
+                            %
                           </span>
                         </div>
                       </div>
@@ -484,9 +501,7 @@ export default function HomePage() {
                         <p className="text-sm font-semibold text-white">
                           {formatRawTokenAmount(validator.tokens)}
                         </p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          raw stake
-                        </p>
+                        <p className="mt-1 text-xs text-slate-500">raw stake</p>
                       </div>
                     </Link>
                   ))}
@@ -534,7 +549,8 @@ export default function HomePage() {
           liveReconciliationQuery.error instanceof Error ? (
             <div className="mt-8 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
               The landing page is intentionally conservative while live protocol
-              queries are unavailable. It will not backfill seeded explorer data.
+              queries are unavailable. It will not backfill seeded explorer
+              data.
             </div>
           ) : null}
         </main>

@@ -138,9 +138,7 @@ function asIsoTimestamp(value: unknown): string | null {
 }
 
 export function normalizeSealStatus(value: unknown): SealLifecycleStatus {
-  const normalized = asString(value)
-    .toLowerCase()
-    .replace("seal_status_", "");
+  const normalized = asString(value).toLowerCase().replace("seal_status_", "");
 
   if (
     normalized === "active" ||
@@ -174,9 +172,7 @@ function normalizeSealListItem(raw: unknown): SealListItem | null {
 
   return {
     id,
-    jobId: asString(
-      record.jobId ?? record.job_id ?? asRecord(record.job)?.id,
-    ),
+    jobId: asString(record.jobId ?? record.job_id ?? asRecord(record.job)?.id),
     status: normalizeSealStatus(record.status),
     modelCommitment: asString(
       record.modelCommitment ?? record.model_commitment,
@@ -196,7 +192,10 @@ function normalizeSealListItem(raw: unknown): SealListItem | null {
   };
 }
 
-function normalizeJob(raw: unknown, fallbackJobId: string): SealJobRecord | null {
+function normalizeJob(
+  raw: unknown,
+  fallbackJobId: string,
+): SealJobRecord | null {
   const record = asRecord(raw);
   if (!record && !fallbackJobId) {
     return null;
@@ -214,9 +213,7 @@ function normalizeJob(raw: unknown, fallbackJobId: string): SealJobRecord | null
     createdAt: asIsoTimestamp(record?.createdAt ?? record?.created_at),
     completedAt: asIsoTimestamp(record?.completedAt ?? record?.completed_at),
     outputHash: asString(record?.outputHash ?? record?.output_hash),
-    creatorAddress: asString(
-      record?.creatorAddress ?? record?.creator_address,
-    ),
+    creatorAddress: asString(record?.creatorAddress ?? record?.creator_address),
     validatorAddress: asString(
       record?.validatorAddress ?? record?.validator_address,
     ),
@@ -241,17 +238,14 @@ function normalizeProofLineage(raw: unknown): SealProofLineageRecord | null {
     ),
     teeType: asString(record.teeType ?? record.tee_type),
     teeTimestamp: asIsoTimestamp(record.teeTimestamp ?? record.tee_timestamp),
-    teeMeasurement: asString(
-      record.teeMeasurement ?? record.tee_measurement,
-    ),
+    teeMeasurement: asString(record.teeMeasurement ?? record.tee_measurement),
     computeMetrics: computeMetricsRecord
       ? {
           cpuCycles: asString(
             computeMetricsRecord.cpuCycles ?? computeMetricsRecord.cpu_cycles,
           ),
           memoryUsed: asString(
-            computeMetricsRecord.memoryUsed ??
-              computeMetricsRecord.memory_used,
+            computeMetricsRecord.memoryUsed ?? computeMetricsRecord.memory_used,
           ),
           computeTimeMs: asString(
             computeMetricsRecord.computeTimeMs ??
@@ -277,9 +271,7 @@ function normalizeSealDetail(
 
   const record = asRecord(raw);
   const validators = Array.isArray(record?.validators)
-    ? record.validators
-        .map((value) => asString(value))
-        .filter(Boolean)
+    ? record.validators.map((value) => asString(value)).filter(Boolean)
     : [];
 
   return {
@@ -339,7 +331,9 @@ export async function fetchSeals(options?: {
   };
 }
 
-async function fetchSealFromListFallback(id: string): Promise<SealListItem | null> {
+async function fetchSealFromListFallback(
+  id: string,
+): Promise<SealListItem | null> {
   const limit = 100;
   let offset = 0;
   let total = limit;
@@ -369,7 +363,9 @@ export async function fetchSeal(id: string): Promise<SealDetailRecord> {
   let detailError: Error | null = null;
 
   try {
-    const response = await fetch(`${API_URL}/v1/seals/${encodeURIComponent(id)}`);
+    const response = await fetch(
+      `${API_URL}/v1/seals/${encodeURIComponent(id)}`,
+    );
     if (response.ok) {
       const payload = (await response.json()) as {
         seal?: unknown;
@@ -380,7 +376,9 @@ export async function fetchSeal(id: string): Promise<SealDetailRecord> {
       if (normalized) {
         return normalized;
       }
-      detailError = new Error("Seal detail response was missing a usable record");
+      detailError = new Error(
+        "Seal detail response was missing a usable record",
+      );
     } else {
       detailError = new Error(
         `Seal detail endpoint returned ${response.status}`,

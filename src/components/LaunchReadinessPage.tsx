@@ -1,5 +1,10 @@
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, FileCheck, ShieldCheck } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  FileCheck,
+  ShieldCheck,
+} from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { Footer, TopNav } from "@/components/SharedComponents";
 import { GlassCard } from "@/components/PagePrimitives";

@@ -82,7 +82,9 @@ export default function ModelDetailPage() {
       <SEOHead
         title={registry?.name || "Model Detail"}
         description="Inspect a live Cruzible model registry entry with lineage, usage, and publication metadata."
-        path={modelHash ? `/models/${encodeURIComponent(modelHash)}` : "/models"}
+        path={
+          modelHash ? `/models/${encodeURIComponent(modelHash)}` : "/models"
+        }
       />
 
       <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -261,7 +263,11 @@ export default function ModelDetailPage() {
                               {registry.storageUri ? (
                                 <div className="mt-2 flex items-start gap-2">
                                   <p className="break-all text-sm text-slate-200">
-                                    {truncateIdentifier(registry.storageUri, 24, 12)}
+                                    {truncateIdentifier(
+                                      registry.storageUri,
+                                      24,
+                                      12,
+                                    )}
                                   </p>
                                   <CopyButton
                                     text={registry.storageUri}
@@ -428,16 +434,17 @@ export default function ModelDetailPage() {
                     <div className="mt-5 space-y-3 text-sm leading-6 text-slate-300">
                       <div className="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3">
                         Registry metadata comes from live `/v1/models` and
-                        `/v1/models/:modelHash` responses, not hand-authored content.
+                        `/v1/models/:modelHash` responses, not hand-authored
+                        content.
                       </div>
                       <div className="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3">
                         Usage metrics show observed job counts and timestamps,
                         not quality rankings or unverified performance claims.
                       </div>
                       <div className="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3">
-                        When the detail endpoint is unavailable, the page downgrades
-                        transparently to a live list fallback rather than inventing
-                        lineage data.
+                        When the detail endpoint is unavailable, the page
+                        downgrades transparently to a live list fallback rather
+                        than inventing lineage data.
                       </div>
                     </div>
                   </GlassCard>
@@ -499,7 +506,8 @@ export default function ModelDetailPage() {
                         Latest observed job: {formatDateTime(usage.latestJobAt)}
                       </div>
                       <div className="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3">
-                        Latest verified job: {formatDateTime(usage.latestVerifiedAt)}
+                        Latest verified job:{" "}
+                        {formatDateTime(usage.latestVerifiedAt)}
                       </div>
                     </div>
                   </GlassCard>

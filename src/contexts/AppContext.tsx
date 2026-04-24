@@ -26,17 +26,15 @@ import {
   useChainId,
   useConnect,
   useDisconnect,
+  useReadContracts,
   useSwitchChain,
   useBlockNumber,
 } from "wagmi";
 
 import { formatUnits } from "viem";
 import { activeChain } from "@/config/wagmi";
-import {
-  CONTRACT_ADDRESSES,
-  STABLECOIN_TOKEN_ADDRESS_KEYS,
-} from "@/config/chains";
-import { getAllStablecoins } from "@/lib/constants";
+import { ERC20ABI } from "@/config/abis";
+import { CONTRACT_ADDRESSES } from "@/config/chains";
 import {
   fetchReconciliationControlPlane,
   type ReconciliationControlPlaneSummary,
@@ -176,41 +174,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     query: { enabled: isConnected, refetchInterval: 12_000 },
   });
 
-  // Query stAETHEL token balance (ERC-20)
-  const { data: stAethelBalance } = useBalance({
-    address: address,
-    token: CONTRACT_ADDRESSES.stAethel
-      ? (CONTRACT_ADDRESSES.stAethel as `0x${string}`)
-      : undefined,
-    query: {
-      enabled: isConnected && !!CONTRACT_ADDRESSES.stAethel,
-      refetchInterval: 12_000,
+  const trackedTokenContracts = [
+    {
+      symbol: "stAETHEL",
+      address: CONTRACT_ADDRESSES.stAethel as `0x${string}` | undefined,
+      decimals: 18,
     },
-  });
-
-  // --- Stablecoin balances ---------------------------------------------------
-  // Build balance queries for every registered stablecoin.
-  // Each useBalance call is keyed by the token address from CONTRACT_ADDRESSES.
-  const stablecoins = getAllStablecoins();
-
-  const { data: usdcBalance } = useBalance({
-    address: address,
-    token: CONTRACT_ADDRESSES.usdcToken
-      ? (CONTRACT_ADDRESSES.usdcToken as `0x${string}`)
-      : undefined,
-    query: {
-      enabled: isConnected && !!CONTRACT_ADDRESSES.usdcToken,
-      refetchInterval: 15_000,
+    {
+      symbol: "USDC",
+      address: CONTRACT_ADDRESSES.usdcToken as `0x${string}` | undefined,
+      decimals: 6,
     },
-  });
+    {
+      symbol: "USDT",
+      address: CONTRACT_ADDRESSES.usdtToken as `0x${string}` | undefined,
+      decimals: 6,
+    },
+  ] as const;
 
-  const { data: usdtBalance } = useBalance({
-    address: address,
-    token: CONTRACT_ADDRESSES.usdtToken
-      ? (CONTRACT_ADDRESSES.usdtToken as `0x${string}`)
-      : undefined,
+  const { data: tokenBalances } = useReadContracts({
+    contracts: trackedTokenContracts.map((token) => ({
+      address: token.address ?? "0x0000000000000000000000000000000000000000",
+      abi: ERC20ABI,
+      functionName: "balanceOf",
+      args: [address ?? "0x0000000000000000000000000000000000000000"],
+    })),
     query: {
-      enabled: isConnected && !!CONTRACT_ADDRESSES.usdtToken,
+      enabled:
+        isConnected &&
+        !!address &&
+        trackedTokenContracts.every((token) => Boolean(token.address)),
       refetchInterval: 15_000,
     },
   });
@@ -227,15 +220,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Build stablecoin balance map from wagmi query results.
     // Each balance entry uses the token's native decimals (6 for USDC/USDT).
     const stablecoinBalances: Record<string, number> = {};
-    if (usdcBalance) {
-      stablecoinBalances.USDC = parseFloat(
-        formatUnits(usdcBalance.value, usdcBalance.decimals),
-      );
+    const stAethelBalance = tokenBalances?.[0]?.result as bigint | undefined;
+    const usdcBalance = tokenBalances?.[1]?.result as bigint | undefined;
+    const usdtBalance = tokenBalances?.[2]?.result as bigint | undefined;
+
+    if (usdcBalance !== undefined) {
+      stablecoinBalances.USDC = parseFloat(formatUnits(usdcBalance, 6));
     }
-    if (usdtBalance) {
-      stablecoinBalances.USDT = parseFloat(
-        formatUnits(usdtBalance.value, usdtBalance.decimals),
-      );
+    if (usdtBalance !== undefined) {
+      stablecoinBalances.USDT = parseFloat(formatUnits(usdtBalance, 6));
     }
 
     return {
@@ -244,11 +237,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       balance: nativeBalance
         ? parseFloat(formatUnits(nativeBalance.value, nativeBalance.decimals))
         : 0,
-      stBalance: stAethelBalance
-        ? parseFloat(
-            formatUnits(stAethelBalance.value, stAethelBalance.decimals),
-          )
-        : 0,
+      stBalance:
+        stAethelBalance !== undefined
+          ? parseFloat(formatUnits(stAethelBalance, 18))
+          : 0,
       stablecoinBalances,
       isConnecting: false,
       isWrongNetwork,
@@ -258,9 +250,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     isConnected,
     address,
     nativeBalance,
-    stAethelBalance,
-    usdcBalance,
-    usdtBalance,
+    tokenBalances,
     wagmiConnecting,
     isWrongNetwork,
     chainId,
@@ -341,7 +331,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const nextBlockHeight =
         blockNumber !== undefined
           ? Number(blockNumber)
-          : controlPlane?.chain_height ?? prev.blockHeight;
+          : (controlPlane?.chain_height ?? prev.blockHeight);
       const fallbackEpoch =
         blockNumber !== undefined
           ? Math.floor(Number(blockNumber) / 1000)
@@ -351,14 +341,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ...prev,
         blockHeight: nextBlockHeight,
         lastBlockTime:
-          blockNumber !== undefined || controlPlane ? Date.now() : prev.lastBlockTime,
+          blockNumber !== undefined || controlPlane
+            ? Date.now()
+            : prev.lastBlockTime,
         epoch: controlPlane?.epoch ?? fallbackEpoch,
         epochSource:
           controlPlane?.epoch_source ??
           (blockNumber !== undefined
             ? "rpc/block-height-estimate"
             : prev.epochSource),
-        protocolCapturedAt: controlPlane?.captured_at ?? prev.protocolCapturedAt,
+        protocolCapturedAt:
+          controlPlane?.captured_at ?? prev.protocolCapturedAt,
         validatorUniverseHash:
           controlPlane?.validator_universe_hash ?? prev.validatorUniverseHash,
         reconciliationWarnings:

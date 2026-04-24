@@ -145,7 +145,9 @@ export async function fetchValidator(
   }
 
   const listResponse = await fetchValidators({ limit: 200 });
-  const validator = listResponse.data.find((entry) => entry.address === address);
+  const validator = listResponse.data.find(
+    (entry) => entry.address === address,
+  );
   if (!validator) {
     throw new Error("Validator not found");
   }
@@ -204,7 +206,10 @@ export function formatRawTokenAmount(value: string): string {
     if (sanitized.length > unit.digits) {
       const whole = sanitized.slice(0, sanitized.length - unit.digits);
       const fraction = sanitized
-        .slice(sanitized.length - unit.digits, sanitized.length - unit.digits + 2)
+        .slice(
+          sanitized.length - unit.digits,
+          sanitized.length - unit.digits + 2,
+        )
         .replace(/0+$/, "");
       return `${whole}${fraction ? `.${fraction}` : ""}${unit.suffix}`;
     }
@@ -240,7 +245,8 @@ export function formatAgeSeconds(seconds?: number | null): string {
 }
 
 export function getSharePercent(value: string | bigint, total: bigint): number {
-  const numericValue = typeof value === "bigint" ? value : parseTokenAmount(value);
+  const numericValue =
+    typeof value === "bigint" ? value : parseTokenAmount(value);
   if (total <= 0n || numericValue <= 0n) {
     return 0;
   }
@@ -253,7 +259,10 @@ export function getValidatorSharePercent(
   validator: ValidatorRecord,
   total: bigint,
 ): number {
-  if (typeof validator.sharePercent === "number" && Number.isFinite(validator.sharePercent)) {
+  if (
+    typeof validator.sharePercent === "number" &&
+    Number.isFinite(validator.sharePercent)
+  ) {
     return validator.sharePercent;
   }
 
@@ -304,7 +313,8 @@ export function buildValidatorMetrics(
   const identityCoverage =
     validators.length > 0
       ? Math.round(
-          (validators.filter((validator) => Boolean(validator.identity)).length /
+          (validators.filter((validator) => Boolean(validator.identity))
+            .length /
             validators.length) *
             100,
         )

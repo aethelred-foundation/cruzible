@@ -21,6 +21,13 @@ export default [
     ],
   },
   {
+    plugins: {
+      "@next/next": nextPlugin,
+      "react-hooks": reactHooks,
+    },
+    rules: {},
+  },
+  {
     files: ["src/**/*.{ts,tsx}"],
     languageOptions: {
       globals: {
@@ -35,10 +42,6 @@ export default [
         },
         sourceType: "module",
       },
-    },
-    plugins: {
-      "@next/next": nextPlugin,
-      "react-hooks": reactHooks,
     },
     rules: {
       ...nextRules,
