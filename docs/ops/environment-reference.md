@@ -40,6 +40,7 @@ These variables are validated or consumed by `backend/api` in the current snapsh
 | `PORT` | No | `3001` | HTTP and Socket.IO listen port |
 | `RPC_URL` | Yes in production | `http://127.0.0.1:26657` | Used by health checks and blockchain service calls; production startup rejects implicit defaults |
 | `DATABASE_URL` | Yes in production | `postgresql://cruzible:...` | Required for Prisma-backed health, indexing, and reconciliation |
+| `REDIS_URL` | Yes in production | `redis://localhost:6379` | Required for cross-instance API cache behavior in production; optional in local/test |
 | `CORS_ORIGINS` | Yes in shared environments | `http://localhost:3000` | Comma-separated; wildcard is rejected in production |
 | `JWT_SECRET` | Yes | replace with secret | Development defaults are rejected in production |
 | `JWT_REFRESH_SECRET` | Yes | replace with secret | Development defaults are rejected in production |
@@ -94,7 +95,7 @@ The variables below are referenced by `backend/infra/docker-compose.yml`. They s
 
 ## 5. Important Caveats
 
-- `REDIS_URL` is still passed through parts of the Compose scaffold, but the current `backend/api/src/services/CacheService.ts` implementation is in-memory.
+- `REDIS_URL` is consumed by `backend/api/src/services/CacheService.ts`. Production startup refuses to run without it, while local/test runs may use the in-memory fallback.
 - `GRPC_URL` appears in Compose scaffolding but is not part of the API config contract enforced by `backend/api/src/config/index.ts`.
 - Protected ops endpoints require bearer JWTs issued through the `/v1/auth` wallet nonce/login flow.
 - Alert history uses PostgreSQL when `DATABASE_URL` is configured and falls back to in-memory history only when database-backed API state is unavailable.
@@ -106,6 +107,7 @@ When `NODE_ENV=production`, API startup refuses to run with:
 
 - missing explicit `RPC_URL`
 - missing `DATABASE_URL`
+- missing `REDIS_URL`
 - development JWT secrets
 - wildcard `CORS_ORIGINS`
 - `ALLOW_MOCK_SIGNATURES=true`

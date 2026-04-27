@@ -26,6 +26,7 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(3001),
   RPC_URL: z.string().url().default('http://127.0.0.1:26657'),
   DATABASE_URL: optionalUrlSchema,
+  REDIS_URL: optionalUrlSchema,
   CORS_ORIGINS: z.string().default('http://localhost:3000'),
   JWT_SECRET: z.string().min(16).default('cruzible-dev-jwt-secret'),
   JWT_REFRESH_SECRET: z.string().min(16).default('cruzible-dev-refresh-secret'),
@@ -113,6 +114,10 @@ if (isProduction) {
     parsedEnv.DATABASE_URL,
     'Refusing to start without DATABASE_URL in production',
   );
+  requireProductionConfig(
+    parsedEnv.REDIS_URL,
+    'Refusing to start without REDIS_URL in production',
+  );
 
   if (defaultSecrets.has(parsedEnv.JWT_SECRET) || defaultSecrets.has(parsedEnv.JWT_REFRESH_SECRET)) {
     throw new Error('Refusing to start with development JWT secrets in production');
@@ -170,6 +175,7 @@ export const config = {
   version: process.env.npm_package_version || '1.0.0',
   rpcUrl: parsedEnv.RPC_URL,
   databaseUrl: parsedEnv.DATABASE_URL,
+  redisUrl: parsedEnv.REDIS_URL,
   corsOrigins: parsedEnv.CORS_ORIGINS.split(',')
     .map((origin) => origin.trim())
     .filter(Boolean),

@@ -6,6 +6,7 @@ const CONFIG_ENV_KEYS = [
   'PORT',
   'RPC_URL',
   'DATABASE_URL',
+  'REDIS_URL',
   'CORS_ORIGINS',
   'JWT_SECRET',
   'JWT_REFRESH_SECRET',
@@ -44,6 +45,7 @@ const productionBaseEnv = {
   NODE_ENV: 'production',
   RPC_URL: 'http://127.0.0.1:26657',
   DATABASE_URL: 'postgresql://cruzible:cruzible@127.0.0.1:5432/cruzible',
+  REDIS_URL: 'redis://127.0.0.1:6379',
   CORS_ORIGINS: 'https://app.cruzible.test',
   JWT_SECRET: 'production-secret-123456',
   JWT_REFRESH_SECRET: 'production-refresh-123456',
@@ -107,6 +109,7 @@ describe('backend config hardening', () => {
       'https://admin.cruzible.test',
     ]);
     expect(config.databaseUrl).toBe(productionBaseEnv.DATABASE_URL);
+    expect(config.redisUrl).toBe(productionBaseEnv.REDIS_URL);
   });
 
   it('rejects missing DATABASE_URL in production', async () => {
@@ -116,6 +119,15 @@ describe('backend config hardening', () => {
         DATABASE_URL: undefined,
       }),
     ).rejects.toThrow('Refusing to start without DATABASE_URL in production');
+  });
+
+  it('rejects missing REDIS_URL in production', async () => {
+    await expect(
+      loadConfigWithEnv({
+        ...productionBaseEnv,
+        REDIS_URL: undefined,
+      }),
+    ).rejects.toThrow('Refusing to start without REDIS_URL in production');
   });
 
   it('rejects invalid alert webhook URLs', async () => {
@@ -129,14 +141,16 @@ describe('backend config hardening', () => {
 
   it('treats blank optional URLs as unset', async () => {
     const { config } = await loadConfigWithEnv({
-      ...productionBaseEnv,
+      NODE_ENV: 'development',
       ALERT_WEBHOOK_URL: '',
+      REDIS_URL: '',
       INDEXER_RPC_URL: '',
       INDEXER_WS_URL: '',
       WS_URL: '',
     });
 
     expect(config.alertWebhookUrl).toBeUndefined();
+    expect(config.redisUrl).toBeUndefined();
     expect(config.indexerRpcUrl).toBe('http://127.0.0.1:8545');
     expect(config.indexerWsUrl).toBe('ws://127.0.0.1:8546');
   });

@@ -75,11 +75,10 @@ cargo test --all
 - The current API benchmark script targets a stale path, `http://localhost:3000/v1/health`. Update that target locally before using it as a meaningful latency measurement.
 - Some frontend pages still include preview or mock fallback data. User-perceived performance should be interpreted in that context.
 - The checked-in Compose monitoring stack is incomplete because referenced config assets are missing from `backend/infra/`.
-- `CacheService` is in-memory in the current snapshot. Alert history is database-backed when `DATABASE_URL` is configured, but multi-instance cache behavior still requires additional deployment work.
+- `CacheService` uses Redis when `REDIS_URL` is configured and production startup requires Redis. Alert history is database-backed when `DATABASE_URL` is configured.
 
 ## 6. Known Measurement Gaps
 
 - There is no checked-in Lighthouse budget or automated frontend performance gate.
 - There is no checked-in Prometheus or Grafana configuration bundle matching the Compose references.
-- There is no durable alert store, so longitudinal alert/SLO review requires external persistence.
 - The repository does not currently include a complete turnkey deployment that can be treated as the canonical performance environment.

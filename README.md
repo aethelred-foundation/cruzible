@@ -131,8 +131,8 @@ cargo test --all
 
 - `backend/infra/docker-compose.yml` references companion config directories and `backend/api/Dockerfile.indexer`, but those assets are not present in this workspace. Treat that Compose file as a baseline, not a turnkey stack.
 - `k8s/base/frontend.yaml` is the only checked-in Kubernetes manifest and currently probes `/api/health`, which is not implemented as a Next.js route in this repository.
-- `backend/api/src/services/CacheService.ts` is in-memory in the current snapshot, so Redis settings in docs or Compose do not change runtime cache behavior yet.
-- `backend/api/src/services/AlertService.ts` keeps alert history in memory. Alert history does not survive process restarts unless you add external persistence outside this repo snapshot.
+- `backend/api/src/services/CacheService.ts` uses Redis when `REDIS_URL` is configured and requires Redis in production; local/test runs keep an in-memory fallback.
+- `backend/api/src/services/AlertService.ts` persists alert history in PostgreSQL when `DATABASE_URL` is configured and falls back to an in-memory buffer for local/test operation.
 - Some frontend surfaces remain preview-oriented. Governance explicitly guards against simulated on-chain success, and several pages use mock or fallback data for presentation.
 
 ## Repository Guide

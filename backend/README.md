@@ -46,7 +46,7 @@ ops routes in a shared environment.
 
 - Health and readiness checks are implemented in `backend/api/src/routes/health.ts`.
 - The Socket.IO server currently emits a `ready` event on client connection.
-- `CacheService` is in-memory in this snapshot.
+- `CacheService` uses Redis when `REDIS_URL` is configured and falls back to an in-memory cache for local/test operation.
 - `AlertService` persists alert history in PostgreSQL when `DATABASE_URL` is configured and falls back to an in-memory buffer for local/test operation.
 - The API reads environment from `process.env`; it does not automatically load `.env` files.
 
@@ -81,6 +81,6 @@ cargo test --all
 
 - `backend/infra/docker-compose.yml` references config directories and `backend/api/Dockerfile.indexer` that are not present in this workspace.
 - The checked-in Kubernetes manifest under `k8s/` is frontend-only; there is no companion backend manifest in this repo snapshot.
-- Compose passes some variables such as `GRPC_URL`, `REDIS_URL`, and `INDEXER_START_HEIGHT`; they should be treated as deployment scaffolding inputs, not proof that the current API runtime consumes all of them directly.
+- Compose passes some variables such as `GRPC_URL` and `INDEXER_START_HEIGHT`; they should be treated as deployment scaffolding inputs, not proof that the current API runtime consumes all of them directly.
 
 For the up-to-date operator view, prefer the runbook and environment reference over older deployment notes or aspirational architecture text.

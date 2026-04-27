@@ -17,6 +17,7 @@ This runbook does not assume that every checked-in infrastructure artifact is tu
 ## 2. Preflight Assumptions
 
 - Operators can provide a reachable PostgreSQL database for `DATABASE_URL`.
+- Operators can provide a reachable Redis instance for `REDIS_URL`.
 - Operators can provide a reachable Aethelred RPC endpoint for `RPC_URL`.
 - JWT secrets are provisioned externally and are not left at development defaults.
 - Operator/admin wallet addresses are provisioned through `AUTH_OPERATOR_ADDRESSES`
@@ -46,6 +47,7 @@ npm run dev
 Before starting the API, inject the variables documented in [backend/.env.example](../../backend/.env.example). The minimum viable set is:
 
 - `DATABASE_URL`
+- `REDIS_URL`
 - `RPC_URL`
 - `JWT_SECRET`
 - `JWT_REFRESH_SECRET`
@@ -116,15 +118,15 @@ The reconciliation scheduler starts automatically with the API process.
 
 ### Important operational caveat
 
-Alert history is persisted in PostgreSQL when `DATABASE_URL` is configured. If
-the API is started without database-backed alert persistence, it falls back to
-an in-process buffer that is cleared on restart.
+Alert history is persisted in PostgreSQL when `DATABASE_URL` is configured. API
+cache entries are stored in Redis when `REDIS_URL` is configured. Local/test
+fallbacks use in-process buffers that are cleared on restart.
 
 ### Investigation flow when readiness fails
 
 1. Query `/health` and `/health/ready`.
 2. Check whether the failing signal is `database`, `blockchainRpc`, `indexer`, or `reconciliation`.
-3. Verify `DATABASE_URL` and `RPC_URL` reachability from the runtime environment.
+3. Verify `DATABASE_URL`, `REDIS_URL`, and `RPC_URL` reachability from the runtime environment.
 4. Inspect API logs for startup errors, Prisma failures, or indexer connection errors.
 5. Confirm whether the issue is operational drift or a genuine protocol anomaly before treating it as resolved.
 
@@ -174,7 +176,6 @@ npm run db:migrate
 
 - `backend/infra/docker-compose.yml` references config directories and `backend/api/Dockerfile.indexer` that are not checked in.
 - `k8s/base/frontend.yaml` currently probes `/api/health`, but the Next.js app in this repository does not implement that route.
-- `backend/api` still uses in-memory cache in the current implementation.
 - There is no checked-in backend Kubernetes manifest matching the API gateway.
 - Production database-backed auth and alert state requires the `AuthNonce`,
   `AuthRefreshSession`, and `AlertEvent` Prisma migrations to be applied before
