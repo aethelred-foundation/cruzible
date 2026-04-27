@@ -50,12 +50,16 @@ cargo fmt --all -- --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo build --release --target wasm32-unknown-unknown
 python3 scripts/validate-release-manifest.py deployments/release-manifest.example.json
+bash -n scripts/sign-audit-artifacts.sh
+bash -n scripts/verify-audit-artifact-signatures.sh
 ```
 
 The `Contracts` CI job also publishes wasm files and `SHA256SUMS` as a
 commit-scoped audit artifact. `scripts/prepare-audit-artifacts.sh` also writes
 `manifest.json` with file sizes and checksums. The local Dockerfile mirrors
 that artifact build path and prints the generated checksums by default.
+`RELEASE_SIGNING.md` defines the cosign and GPG detached-signature process for
+release artifacts.
 
 ## Audit-Candidate Checklist
 
@@ -68,6 +72,7 @@ Before external audit:
 - [x] Known residual review items documented for auditor review.
 - [x] Deployment assumptions and contract address wiring documented.
 - [x] Release manifest template is checked in and validated in CI.
+- [x] Release artifact signing and verification scripts are checked in.
 - [ ] Staging release manifest captured with code IDs, addresses, checksums, and role owners.
 
 Before production readiness:
@@ -75,6 +80,7 @@ Before production readiness:
 - [ ] External audit completed.
 - [ ] Audit findings remediated or explicitly risk accepted.
 - [ ] Deployment scripts completed and reviewed.
+- [ ] Production artifact signatures generated and verified.
 - [ ] Staging validation completed on a real chain.
 - [ ] End-to-end cross-contract integration validated.
 - [ ] Operational runbooks completed for keys, upgrades, pauses, monitoring, and incident response.
@@ -86,6 +92,7 @@ Before production readiness:
 - `TEST_COVERAGE.md` records current test evidence and coverage limits.
 - `security_best_practices_report.md` summarizes audit-candidate assurance evidence.
 - `AUDIT_PACKET.md` records scope, artifact, deployment-assumption, and staging-drill inputs for auditors.
+- `RELEASE_SIGNING.md` records the artifact signing and verification process.
 - `deployments/release-manifest.example.json` defines the required staging release manifest shape.
 
 ## License

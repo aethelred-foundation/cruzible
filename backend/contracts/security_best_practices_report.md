@@ -71,6 +71,7 @@ The workspace is suitable for an external audit candidate branch after the follo
 - Current source tree and Cargo lockfile.
 - Reproducible `cargo test` output showing 233 passing tests.
 - Commit-scoped wasm artifacts, `SHA256SUMS`, and `manifest.json` from CI.
+- Detached artifact signatures generated with `RELEASE_SIGNING.md` before launch.
 - This assurance report and the related security/test coverage documents.
 - `AUDIT_PACKET.md` with residual review items, deployment assumptions, staging drill, and release manifest template.
 
@@ -80,6 +81,7 @@ The following remain launch blockers:
 
 - Independent external security audit.
 - Deployment scripts and repeatable artifact generation.
+- Production release-key signing of wasm artifact checksums and manifests.
 - Staging validation against a real chain environment.
 - Real cross-contract integration on the target chain.
 - Closure or explicit risk acceptance for residual review items in `AUDIT_PACKET.md`.

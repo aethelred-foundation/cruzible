@@ -53,13 +53,14 @@ Completed for audit-candidate state:
 - [x] CI workflow uploads commit-scoped wasm artifacts, `SHA256SUMS`, and `manifest.json`.
 - [x] Residual review items and deployment assumptions are documented in `AUDIT_PACKET.md`.
 - [x] Release manifest template is checked in and validated in CI.
+- [x] Artifact signing and verification scripts are checked in and syntax-checked by CI.
 
 Required before production readiness:
 
 - [ ] Independent external audit completed.
 - [ ] Audit findings remediated or explicitly risk accepted.
 - [ ] Staging deployment manifest completed and reviewed with code IDs, addresses, checksums, and role owners.
-- [ ] Optimized wasm artifacts signed if required by launch policy.
+- [ ] Optimized wasm artifacts signed with production release keys.
 - [ ] Staging deployment validated on a real chain.
 - [ ] End-to-end cross-contract integration tested.
 - [ ] Residual review items closed or formally accepted.
@@ -73,6 +74,7 @@ The current evidence supports an audit-candidate designation. It does not suppor
 
 - CI job that runs tests, formatting, clippy, dependency audit, schema generation, and wasm optimization.
 - Release checklist with artifact hashes and deployment parameters.
+- Detached signatures for artifact checksums and manifests.
 - Staging drill for instantiate, execute, query, pause, migration, and recovery flows.
 - External audit report linked to final remediation commits.
 - Monitoring thresholds for vault solvency, reward distribution, payment claims, governance execution, and seal creation.

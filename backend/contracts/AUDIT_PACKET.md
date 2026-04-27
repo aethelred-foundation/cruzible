@@ -49,6 +49,8 @@ The script copies wasm files into `audit-artifacts/contracts`, writes
 `SHA256SUMS`, and creates `manifest.json` with the commit, timestamp, file
 sizes, and checksums. The CI `Contracts` job performs the same wasm build and
 uploads that directory as an audit artifact named with the commit SHA.
+`RELEASE_SIGNING.md` documents cosign and GPG detached-signature flows for the
+checksums and manifest.
 
 ## Deployment Assumptions
 
@@ -74,16 +76,16 @@ uploads that directory as an audit artifact named with the commit SHA.
 
 These are not hidden TODOs. They are explicit pre-production review items:
 
-| Item                               | Status | Required action                                                                        |
-| ---------------------------------- | ------ | -------------------------------------------------------------------------------------- |
-| External audit                     | Open   | Complete independent review and remediate or accept findings.                          |
-| Artifact manifest                  | Ready  | `scripts/prepare-audit-artifacts.sh` generates `manifest.json` and `SHA256SUMS`.       |
-| Deployment manifest template       | Ready  | `deployments/release-manifest.example.json` is validated in CI.                        |
-| Staging deployment manifest        | Open   | Record real code IDs, contract addresses, admins, operators, and artifact checksums.   |
-| Staging deployment                 | Open   | Instantiate all contracts on a real chain and exercise core cross-contract flows.      |
-| Governance feeder decentralization | Open   | Define governance v2 feeder election or formally accept the bootstrapped feeder model. |
-| Frontend allowance flow            | Ready  | Vault unstake checks stAETHEL allowance and obtains exact approval before submission.  |
-| Release artifact signing           | Open   | Add signer identity and detached signatures if required by launch policy.              |
+| Item                               | Status  | Required action                                                                                    |
+| ---------------------------------- | ------- | -------------------------------------------------------------------------------------------------- |
+| External audit                     | Open    | Complete independent review and remediate or accept findings.                                      |
+| Artifact manifest                  | Ready   | `scripts/prepare-audit-artifacts.sh` generates `manifest.json` and `SHA256SUMS`.                   |
+| Deployment manifest template       | Ready   | `deployments/release-manifest.example.json` is validated in CI.                                    |
+| Staging deployment manifest        | Open    | Record real code IDs, contract addresses, admins, operators, and artifact checksums.               |
+| Staging deployment                 | Open    | Instantiate all contracts on a real chain and exercise core cross-contract flows.                  |
+| Governance feeder decentralization | Open    | Define governance v2 feeder election or formally accept the bootstrapped feeder model.             |
+| Frontend allowance flow            | Ready   | Vault unstake checks stAETHEL allowance and obtains exact approval before submission.              |
+| Release artifact signing           | Partial | Signing and verification scripts are checked in; production signatures still require release keys. |
 
 ## Minimum Staging Drill
 
@@ -97,5 +99,7 @@ Before production readiness can be claimed, run a staging drill that covers:
 - Pause and unpause emergency flows using production-like role separation.
 - Export event logs, checksums, code IDs, and contract addresses into the
   release manifest.
+- Sign and verify `SHA256SUMS` and `manifest.json` using the production
+  artifact signer.
 - Validate the completed release manifest with
   `python3 scripts/validate-release-manifest.py`.

@@ -144,6 +144,13 @@ jobs:
         working-directory: ./backend/contracts
         run: python3 scripts/validate-release-manifest.py deployments/release-manifest.example.json
 
+      - name: Check audit artifact scripts
+        working-directory: ./backend/contracts
+        run: |
+          bash -n scripts/prepare-audit-artifacts.sh
+          bash -n scripts/sign-audit-artifacts.sh
+          bash -n scripts/verify-audit-artifact-signatures.sh
+
       - name: Check contracts compile without warnings
         working-directory: ./backend/contracts
         env:
