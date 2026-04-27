@@ -140,6 +140,10 @@ jobs:
         working-directory: ./backend/contracts
         run: cargo fmt --all -- --check
 
+      - name: Validate release manifest template
+        working-directory: ./backend/contracts
+        run: python3 scripts/validate-release-manifest.py deployments/release-manifest.example.json
+
       - name: Check contracts compile without warnings
         working-directory: ./backend/contracts
         env:

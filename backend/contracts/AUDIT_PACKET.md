@@ -52,6 +52,9 @@ uploads that directory as an audit artifact named with the commit SHA.
 
 ## Deployment Assumptions
 
+- Release manifests must conform to
+  `deployments/release-manifest.example.json` and pass
+  `python3 scripts/validate-release-manifest.py <manifest>`.
 - The CW20 staking token is instantiated with the vault contract as minter.
 - The vault `staking_token` config points to the deployed CW20 staking token.
 - Vault unstake uses the staking token `BurnFrom` flow, so users must approve
@@ -75,7 +78,8 @@ These are not hidden TODOs. They are explicit pre-production review items:
 | ---------------------------------- | ------ | -------------------------------------------------------------------------------------- |
 | External audit                     | Open   | Complete independent review and remediate or accept findings.                          |
 | Artifact manifest                  | Ready  | `scripts/prepare-audit-artifacts.sh` generates `manifest.json` and `SHA256SUMS`.       |
-| Deployment manifest                | Open   | Record code IDs, contract addresses, admins, operators, and artifact checksums.        |
+| Deployment manifest template       | Ready  | `deployments/release-manifest.example.json` is validated in CI.                        |
+| Staging deployment manifest        | Open   | Record real code IDs, contract addresses, admins, operators, and artifact checksums.   |
 | Staging deployment                 | Open   | Instantiate all contracts on a real chain and exercise core cross-contract flows.      |
 | Governance feeder decentralization | Open   | Define governance v2 feeder election or formally accept the bootstrapped feeder model. |
 | Frontend allowance flow            | Open   | Ensure unstake UX obtains CW20 `BurnFrom` allowance before submitting vault unstake.   |
@@ -93,3 +97,5 @@ Before production readiness can be claimed, run a staging drill that covers:
 - Pause and unpause emergency flows using production-like role separation.
 - Export event logs, checksums, code IDs, and contract addresses into the
   release manifest.
+- Validate the completed release manifest with
+  `python3 scripts/validate-release-manifest.py`.

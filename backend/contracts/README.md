@@ -49,6 +49,7 @@ cargo test
 cargo fmt --all -- --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo build --release --target wasm32-unknown-unknown
+python3 scripts/validate-release-manifest.py deployments/release-manifest.example.json
 ```
 
 The `Contracts` CI job also publishes wasm files and `SHA256SUMS` as a
@@ -66,6 +67,7 @@ Before external audit:
 - [x] CI workflow uploads commit-scoped wasm artifacts, checksums, and manifest.
 - [x] Known residual review items documented for auditor review.
 - [x] Deployment assumptions and contract address wiring documented.
+- [x] Release manifest template is checked in and validated in CI.
 - [ ] Staging release manifest captured with code IDs, addresses, checksums, and role owners.
 
 Before production readiness:
@@ -84,6 +86,7 @@ Before production readiness:
 - `TEST_COVERAGE.md` records current test evidence and coverage limits.
 - `security_best_practices_report.md` summarizes audit-candidate assurance evidence.
 - `AUDIT_PACKET.md` records scope, artifact, deployment-assumption, and staging-drill inputs for auditors.
+- `deployments/release-manifest.example.json` defines the required staging release manifest shape.
 
 ## License
 
