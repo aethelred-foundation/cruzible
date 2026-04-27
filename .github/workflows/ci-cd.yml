@@ -159,3 +159,19 @@ jobs:
       - name: Build optimized CosmWasm artifacts
         working-directory: ./backend/contracts
         run: cargo build --workspace --release --target wasm32-unknown-unknown --locked
+
+      - name: Collect CosmWasm artifact checksums
+        working-directory: ./backend/contracts
+        run: |
+          mkdir -p audit-artifacts/contracts
+          cp target/wasm32-unknown-unknown/release/*.wasm audit-artifacts/contracts/
+          cd audit-artifacts/contracts
+          sha256sum *.wasm > SHA256SUMS
+
+      - name: Upload CosmWasm audit artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cosmwasm-contracts-${{ github.sha }}
+          path: backend/contracts/audit-artifacts/contracts
+          if-no-files-found: error
+          retention-days: 30

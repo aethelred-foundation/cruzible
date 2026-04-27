@@ -51,6 +51,10 @@ cargo clippy --all-targets --all-features -- -D warnings
 cargo build --release --target wasm32-unknown-unknown
 ```
 
+The `Contracts` CI job also publishes wasm files and `SHA256SUMS` as a
+commit-scoped audit artifact. The local Dockerfile mirrors that artifact build
+path and prints the generated checksums by default.
+
 ## Audit-Candidate Checklist
 
 Before external audit:
@@ -58,8 +62,10 @@ Before external audit:
 - [x] Prior critical remediations implemented in live code.
 - [x] Local `cargo test` passes with 233 tests.
 - [x] CI workflow enforces test, fmt, clippy, and wasm release build gates.
-- [ ] Known TODOs documented for auditor review.
-- [ ] Deployment assumptions and contract address wiring documented.
+- [x] CI workflow uploads commit-scoped wasm artifacts and checksums.
+- [x] Known residual review items documented for auditor review.
+- [x] Deployment assumptions and contract address wiring documented.
+- [ ] Staging release manifest captured with code IDs, addresses, checksums, and role owners.
 
 Before production readiness:
 
@@ -76,6 +82,7 @@ Before production readiness:
 - `SECURITY_COMPLIANCE_REPORT.md` summarizes remediation and launch blockers.
 - `TEST_COVERAGE.md` records current test evidence and coverage limits.
 - `security_best_practices_report.md` summarizes audit-candidate assurance evidence.
+- `AUDIT_PACKET.md` records scope, artifact, deployment-assumption, and staging-drill inputs for auditors.
 
 ## License
 

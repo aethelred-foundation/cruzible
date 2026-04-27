@@ -30,18 +30,18 @@ Supporting assurance documents:
 
 The current code includes remediations for the previously tracked critical and high-risk areas:
 
-| Area | Current evidence |
-|---|---|
-| Vault reward accounting | Reward index/checkpoint controls prevent repeat reward claims and stale pro-rata reward capture. |
-| Vault withdrawal claims | Claimed-state handling and terminal request state prevent double claim of unbonding requests. |
-| Vault rounding | Share mint/burn rounding is protocol-favorable and covered by security tests. |
-| Vault stAETHEL lifecycle | Stake, compound, and restake mint stAETHEL; unstake burns stAETHEL through the configured staking token contract. |
-| Vault donation controls | Accounted balance tracking and donation controls prevent direct-transfer share price inflation. |
-| AI job payment claims | Paid-state transition prevents repeated settlement of the same verified job. |
-| Governance voting | Snapshot voting power and quorum controls replace placeholder voting and execution logic. |
-| Model registry fees | Registration fee enforcement is active. |
-| Model registry job counts | Job-count mutation is restricted to the authorized job manager. |
-| Seal manager provenance | Seal creation verifies the referenced job through the configured job manager. |
+| Area                      | Current evidence                                                                                                  |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Vault reward accounting   | Reward index/checkpoint controls prevent repeat reward claims and stale pro-rata reward capture.                  |
+| Vault withdrawal claims   | Claimed-state handling and terminal request state prevent double claim of unbonding requests.                     |
+| Vault rounding            | Share mint/burn rounding is protocol-favorable and covered by security tests.                                     |
+| Vault stAETHEL lifecycle  | Stake, compound, and restake mint stAETHEL; unstake burns stAETHEL through the configured staking token contract. |
+| Vault donation controls   | Accounted balance tracking and donation controls prevent direct-transfer share price inflation.                   |
+| AI job payment claims     | Paid-state transition prevents repeated settlement of the same verified job.                                      |
+| Governance voting         | Snapshot voting power and quorum controls replace placeholder voting and execution logic.                         |
+| Model registry fees       | Registration fee enforcement is active.                                                                           |
+| Model registry job counts | Job-count mutation is restricted to the authorized job manager.                                                   |
+| Seal manager provenance   | Seal creation verifies the referenced job through the configured job manager.                                     |
 
 ## Current Test Evidence
 
@@ -53,16 +53,16 @@ cargo test
 
 Passing test counts:
 
-| Suite | Passing tests |
-|---|---:|
-| `vault` | 24 |
-| `ai_job_manager` | 52 |
-| `cw20_staking` | 42 |
-| `governance` | 41 |
-| `model_registry` | 47 |
-| `seal_manager` | 27 |
-| Doc tests | 0 |
-| **Total** | **233** |
+| Suite            | Passing tests |
+| ---------------- | ------------: |
+| `vault`          |            24 |
+| `ai_job_manager` |            52 |
+| `cw20_staking`   |            42 |
+| `governance`     |            41 |
+| `model_registry` |            47 |
+| `seal_manager`   |            27 |
+| Doc tests        |             0 |
+| **Total**        |       **233** |
 
 ## Audit-Candidate Readiness
 
@@ -70,8 +70,9 @@ The workspace is suitable for an external audit candidate branch after the follo
 
 - Current source tree and Cargo lockfile.
 - Reproducible `cargo test` output showing 233 passing tests.
+- Commit-scoped wasm artifacts and `SHA256SUMS` from CI.
 - This assurance report and the related security/test coverage documents.
-- Known TODO list and deployment assumptions.
+- `AUDIT_PACKET.md` with residual review items, deployment assumptions, and staging drill.
 
 ## Not Yet Production Ready
 
@@ -81,7 +82,7 @@ The following remain launch blockers:
 - Deployment scripts and repeatable artifact generation.
 - Staging validation against a real chain environment.
 - Real cross-contract integration on the target chain.
-- Closure or explicit risk acceptance for remaining TODOs.
+- Closure or explicit risk acceptance for residual review items in `AUDIT_PACKET.md`.
 - Operational runbooks for keys, upgrades, pauses, monitoring, and incident response.
 
 ## Recommended Next Steps

@@ -67,8 +67,8 @@ The contracts should not be described as production ready or mainnet ready until
 - Reproducible deployment scripts and artifact checksums.
 - Staging deployment on a real chain environment.
 - End-to-end cross-contract integration validation.
-- Passing CI evidence for tests, formatting, clippy, dependency audit, and optimized wasm builds.
-- Closure or explicit risk acceptance for remaining TODOs.
+- Passing CI evidence for tests, formatting, clippy, dependency audit, optimized wasm builds, and uploaded checksums.
+- Closure or explicit risk acceptance for the residual review items in `AUDIT_PACKET.md`.
 
 ## Conclusion
 
