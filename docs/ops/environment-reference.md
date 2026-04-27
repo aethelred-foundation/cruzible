@@ -1,7 +1,7 @@
 # Cruzible Environment Reference
 
 > Repo-aligned environment contract for the current workspace snapshot.
-> Last reconciled on 2026-04-22.
+> Last reconciled on 2026-04-27.
 
 ## 1. Loading Behavior
 
@@ -38,8 +38,8 @@ These variables are validated or consumed by `backend/api` in the current snapsh
 | --- | --- | --- | --- |
 | `NODE_ENV` | No | `development` | `production` adds stricter startup checks |
 | `PORT` | No | `3001` | HTTP and Socket.IO listen port |
-| `RPC_URL` | Yes | `http://127.0.0.1:26657` | Used by health checks and blockchain service calls |
-| `DATABASE_URL` | Yes | `postgresql://cruzible:...` | Required for Prisma-backed health, indexing, and reconciliation |
+| `RPC_URL` | Yes in production | `http://127.0.0.1:26657` | Used by health checks and blockchain service calls; production startup rejects implicit defaults |
+| `DATABASE_URL` | Yes in production | `postgresql://cruzible:...` | Required for Prisma-backed health, indexing, and reconciliation |
 | `CORS_ORIGINS` | Yes in shared environments | `http://localhost:3000` | Comma-separated; wildcard is rejected in production |
 | `JWT_SECRET` | Yes | replace with secret | Development defaults are rejected in production |
 | `JWT_REFRESH_SECRET` | Yes | replace with secret | Development defaults are rejected in production |
@@ -50,19 +50,19 @@ These variables are validated or consumed by `backend/api` in the current snapsh
 | `RATE_LIMIT_MAX` | No | `120` | Global limiter max request count |
 | `ALLOW_MOCK_SIGNATURES` | No | `false` | Development-only escape hatch; blocked in production |
 | `INDEXER_ENABLED` | No | `true` | Enables startup of the API-side indexer service |
-| `INDEXER_RPC_URL` | No | `http://127.0.0.1:8545` | JSON-RPC endpoint used by the indexer service |
-| `INDEXER_WS_URL` | No | `ws://127.0.0.1:8546` | WebSocket endpoint used by the indexer service |
+| `INDEXER_RPC_URL` | Required if production indexer enabled | `http://127.0.0.1:8545` | JSON-RPC endpoint used by the indexer service |
+| `INDEXER_WS_URL` | Required if production indexer enabled | `ws://127.0.0.1:8546` | WebSocket endpoint used by the indexer service |
 | `INDEXER_START_BLOCK` | No | `0` | API-side indexer start height |
-| `CRUZIBLE_VAULT_ADDRESS` | Optional | blank | Indexer/reconciliation contract address |
-| `STAETHEL_ADDRESS` | Optional | blank | Indexer/reconciliation contract address |
-| `STABLECOIN_BRIDGE_ADDRESS` | Optional | blank | Stablecoin bridge event source |
-| `ALERT_WEBHOOK_URL` | Optional | blank | For forwarding alerts externally |
+| `CRUZIBLE_VAULT_ADDRESS` | Required if production indexer enabled | blank | Must be blank or a non-zero EVM address |
+| `STAETHEL_ADDRESS` | Required if production indexer enabled | blank | Must be blank or a non-zero EVM address |
+| `STABLECOIN_BRIDGE_ADDRESS` | Required if production indexer enabled | blank | Must be blank or a non-zero EVM address |
+| `ALERT_WEBHOOK_URL` | Optional | blank | Must be a valid URL when set |
 | `ALERT_RATE_LIMIT_MS` | No | `300000` | Suppression window for duplicate alert categories |
 | `RECONCILIATION_INTERVAL_MS` | No | `300000` | Scheduler interval |
 | `RECONCILIATION_MIN_VALIDATORS` | No | `4` | Minimum active validators expected |
 | `RECONCILIATION_EPOCH_DURATION_S` | No | `3600` | Expected epoch duration |
 | `RECONCILIATION_RATE_WARN_PCT` | No | `0.01` | Exchange rate drift warning threshold |
-| `RECONCILIATION_RATE_CRIT_PCT` | No | `0.05` | Exchange rate drift critical threshold |
+| `RECONCILIATION_RATE_CRIT_PCT` | No | `0.05` | Must be greater than `RECONCILIATION_RATE_WARN_PCT` |
 | `RECONCILIATION_TVL_DRIFT_PCT` | No | `0.02` | TVL drift threshold |
 
 ## 4. Compose and Scaffold Variables
@@ -96,8 +96,16 @@ The variables below are referenced by `backend/infra/docker-compose.yml`. They s
 
 When `NODE_ENV=production`, API startup refuses to run with:
 
+- missing explicit `RPC_URL`
+- missing `DATABASE_URL`
 - development JWT secrets
 - wildcard `CORS_ORIGINS`
 - `ALLOW_MOCK_SIGNATURES=true`
+- `INDEXER_ENABLED=true` without explicit indexer RPC/WebSocket URLs and all contract addresses
 
-Treat those checks as the bare minimum, not a complete production hardening program.
+Environment validation also rejects malformed URLs, malformed or zero EVM addresses,
+and reconciliation thresholds where the critical exchange-rate threshold is not
+greater than the warning threshold.
+
+Treat these checks as the baseline production contract, not a complete production
+hardening program.

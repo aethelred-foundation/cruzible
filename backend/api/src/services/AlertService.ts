@@ -13,6 +13,7 @@
 
 import { injectable } from 'tsyringe';
 import { logger } from '../utils/logger';
+import { config } from '../config';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -59,9 +60,6 @@ export interface AlertSummary {
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Default rate-limit window in milliseconds (5 minutes). */
-const DEFAULT_RATE_LIMIT_MS = 5 * 60 * 1000;
-
 /** Maximum number of alerts to keep in the ring buffer. */
 const MAX_ALERT_HISTORY = 100;
 
@@ -84,8 +82,8 @@ export class AlertService {
   private readonly rateLimitMs: number;
 
   constructor() {
-    this.webhookUrl = process.env.ALERT_WEBHOOK_URL || undefined;
-    this.rateLimitMs = Number(process.env.ALERT_RATE_LIMIT_MS) || DEFAULT_RATE_LIMIT_MS;
+    this.webhookUrl = config.alertWebhookUrl;
+    this.rateLimitMs = config.alertRateLimitMs;
   }
 
   // -----------------------------------------------------------------------

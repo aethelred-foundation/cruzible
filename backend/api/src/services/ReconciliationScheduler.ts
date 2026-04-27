@@ -25,6 +25,7 @@ import { CacheService } from './CacheService';
 import { AlertService, AlertSeverity, AlertType } from './AlertService';
 import { logger } from '../utils/logger';
 import { resolveProtocolEpoch } from '../lib/protocolEpoch';
+import { config } from '../config';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -71,30 +72,14 @@ export interface IndexedState {
 // Constants & Defaults
 // ---------------------------------------------------------------------------
 
-/** Default reconciliation interval (5 minutes). */
-const DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
-
 /** Cache key for the latest reconciliation result. */
 const CACHE_KEY_LATEST = 'reconciliation:scheduler:latest';
 
 /** Cache TTL — persisted until overwritten by the next tick. */
 const CACHE_TTL_SECONDS = 600;
 
-/** Exchange rate drift thresholds (fractional). */
-const EXCHANGE_RATE_WARN_THRESHOLD = 0.01; // 1%
-const EXCHANGE_RATE_CRITICAL_THRESHOLD = 0.05; // 5%
-
-/** TVL drift threshold (fractional). */
-const TVL_DRIFT_THRESHOLD = 0.02; // 2%
-
 /** Epoch staleness multiplier — if epoch hasn't changed in 2x epoch duration → warning. */
 const EPOCH_STALE_MULTIPLIER = 2;
-
-/** Default expected epoch duration (seconds) — 1 hour. */
-const DEFAULT_EPOCH_DURATION_SECONDS = 3600;
-
-/** Minimum active validator count. */
-const DEFAULT_MIN_VALIDATORS = 4;
 
 // ---------------------------------------------------------------------------
 // Known Stablecoin Assets — backend-side symbol registry
@@ -148,18 +133,13 @@ export class ReconciliationScheduler {
   ) {
     this.prisma = new PrismaClient();
 
-    this.intervalMs =
-      Number(process.env.RECONCILIATION_INTERVAL_MS) || DEFAULT_INTERVAL_MS;
-    this.minValidators =
-      Number(process.env.RECONCILIATION_MIN_VALIDATORS) || DEFAULT_MIN_VALIDATORS;
-    this.epochDurationSeconds =
-      Number(process.env.RECONCILIATION_EPOCH_DURATION_S) || DEFAULT_EPOCH_DURATION_SECONDS;
-    this.exchangeRateWarnThreshold =
-      Number(process.env.RECONCILIATION_RATE_WARN_PCT) || EXCHANGE_RATE_WARN_THRESHOLD;
+    this.intervalMs = config.reconciliationIntervalMs;
+    this.minValidators = config.reconciliationMinValidators;
+    this.epochDurationSeconds = config.reconciliationEpochDurationSeconds;
+    this.exchangeRateWarnThreshold = config.reconciliationRateWarnThreshold;
     this.exchangeRateCriticalThreshold =
-      Number(process.env.RECONCILIATION_RATE_CRIT_PCT) || EXCHANGE_RATE_CRITICAL_THRESHOLD;
-    this.tvlDriftThreshold =
-      Number(process.env.RECONCILIATION_TVL_DRIFT_PCT) || TVL_DRIFT_THRESHOLD;
+      config.reconciliationRateCriticalThreshold;
+    this.tvlDriftThreshold = config.reconciliationTvlDriftThreshold;
   }
 
   // -----------------------------------------------------------------------

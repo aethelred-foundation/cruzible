@@ -31,6 +31,7 @@ import {
 } from 'ethers';
 import { logger } from '../utils/logger';
 import { BlockchainService } from './BlockchainService';
+import { config } from '../config';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -253,14 +254,13 @@ export class IndexerService {
   async initialize(): Promise<void> {
     logger.info('IndexerService initializing...');
 
-    // Load config from environment
     this.cfg = {
-      wsUrl: process.env.INDEXER_WS_URL || process.env.WS_URL || 'ws://127.0.0.1:8546',
-      rpcUrl: process.env.INDEXER_RPC_URL || process.env.RPC_URL || 'http://127.0.0.1:8545',
-      cruzibleVaultAddress: process.env.CRUZIBLE_VAULT_ADDRESS || '',
-      staethelAddress: process.env.STAETHEL_ADDRESS || '',
-      stablecoinBridgeAddress: process.env.STABLECOIN_BRIDGE_ADDRESS || '',
-      startBlock: parseInt(process.env.INDEXER_START_BLOCK || '0', 10),
+      wsUrl: config.indexerWsUrl,
+      rpcUrl: config.indexerRpcUrl,
+      cruzibleVaultAddress: config.cruzibleVaultAddress,
+      staethelAddress: config.staethelAddress,
+      stablecoinBridgeAddress: config.stablecoinBridgeAddress,
+      startBlock: config.indexerStartBlock,
     };
 
     if (!this.cfg.cruzibleVaultAddress) {
