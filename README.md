@@ -129,7 +129,7 @@ cargo test --all
 
 ## Known Repo-Reality Gaps
 
-- `backend/infra/docker-compose.yml` references companion config directories and `backend/api/Dockerfile.indexer`, but those assets are not present in this workspace. Treat that Compose file as a baseline, not a turnkey stack.
+- `backend/infra/docker-compose.yml` still references companion config directories that are not present in this workspace. Treat that Compose file as a hardened baseline, not a turnkey stack.
 - `k8s/base/frontend.yaml` is frontend-only and probes the implemented Next.js `/api/health` route; there is no checked-in backend Kubernetes manifest yet.
 - `backend/api/src/services/CacheService.ts` uses Redis when `REDIS_URL` is configured and requires Redis in production; local/test runs keep an in-memory fallback.
 - `backend/api/src/services/AlertService.ts` persists alert history in PostgreSQL when `DATABASE_URL` is configured and falls back to an in-memory buffer for local/test operation.

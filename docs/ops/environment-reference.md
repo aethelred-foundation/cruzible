@@ -87,8 +87,7 @@ The variables below are referenced by `backend/infra/docker-compose.yml`. They s
 | `DB_USER` | postgres + compose-generated URLs | Shared Compose credential input |
 | `DB_PASSWORD` | postgres + compose-generated URLs | Shared Compose credential input |
 | `DB_NAME` | postgres + health checks | Shared Compose database name |
-| `INDEXER_START_HEIGHT` | indexer scaffold | Compose name differs from API runtime `INDEXER_START_BLOCK` |
-| `INDEXER_BATCH_SIZE` | indexer scaffold | Compose-only in this snapshot |
+| `INDEXER_START_HEIGHT` | indexer scaffold | Compose maps this to API runtime `INDEXER_START_BLOCK` |
 | `GRAFANA_USER` | grafana scaffold | Grafana bootstrap user |
 | `GRAFANA_PASSWORD` | grafana scaffold | Grafana bootstrap password |
 | `GRAFANA_ROOT_URL` | grafana scaffold | Grafana external URL |
@@ -96,10 +95,10 @@ The variables below are referenced by `backend/infra/docker-compose.yml`. They s
 ## 5. Important Caveats
 
 - `REDIS_URL` is consumed by `backend/api/src/services/CacheService.ts`. Production startup refuses to run without it, while local/test runs may use the in-memory fallback.
-- `GRPC_URL` appears in Compose scaffolding but is not part of the API config contract enforced by `backend/api/src/config/index.ts`.
+- `GRPC_URL` appears in node-facing Compose scaffolding but is not part of the API config contract enforced by `backend/api/src/config/index.ts`.
 - Protected ops endpoints require bearer JWTs issued through the `/v1/auth` wallet nonce/login flow.
 - Alert history uses PostgreSQL when `DATABASE_URL` is configured and falls back to in-memory history only when database-backed API state is unavailable.
-- `backend/infra/docker-compose.yml` references additional files and directories that are not checked in, including `backend/api/Dockerfile.indexer`.
+- `backend/infra/docker-compose.yml` still references additional config directories that are not checked in.
 
 ## 6. Production Hygiene Rules Already Enforced In Code
 

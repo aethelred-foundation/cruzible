@@ -178,7 +178,7 @@ npm run db:migrate:deploy
 
 ## 8. Known Operator Gaps In This Repo Snapshot
 
-- `backend/infra/docker-compose.yml` references config directories and `backend/api/Dockerfile.indexer` that are not checked in.
+- `backend/infra/docker-compose.yml` references config directories that are not checked in.
 - There is no checked-in backend Kubernetes manifest matching the API gateway.
 - Production database-backed auth and alert state requires the `AuthNonce`,
   `AuthRefreshSession`, and `AlertEvent` Prisma migrations to be applied with
@@ -191,5 +191,5 @@ npm run db:migrate:deploy
 - Confirm JWT secrets and CORS settings are production-safe before any shared deployment.
 - Confirm auth role address lists are set and test `/v1/auth/nonce`,
   `/v1/auth/login`, `/v1/auth/refresh`, and `/v1/auth/logout`.
-- Treat `backend/infra/docker-compose.yml` as a scaffold until the missing assets are supplied.
+- Treat `backend/infra/docker-compose.yml` as a hardened baseline until the missing config assets are supplied and tested in staging.
 - Verify all externally referenced health probes and rollout steps against the deployed environment, not just the repo.

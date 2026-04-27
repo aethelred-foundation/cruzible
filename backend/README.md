@@ -83,8 +83,8 @@ cargo test --all
 
 ## Infrastructure Caveats
 
-- `backend/infra/docker-compose.yml` references config directories and `backend/api/Dockerfile.indexer` that are not present in this workspace.
+- `backend/infra/docker-compose.yml` references config directories that are not present in this workspace.
 - The checked-in Kubernetes manifest under `k8s/` is frontend-only; there is no companion backend manifest in this repo snapshot.
-- Compose passes some variables such as `GRPC_URL` and `INDEXER_START_HEIGHT`; they should be treated as deployment scaffolding inputs, not proof that the current API runtime consumes all of them directly.
+- Compose passes `GRPC_URL` to node-facing services and maps `INDEXER_START_HEIGHT` to the API runtime `INDEXER_START_BLOCK`.
 
 For the up-to-date operator view, prefer the runbook and environment reference over older deployment notes or aspirational architecture text.
