@@ -138,15 +138,17 @@ fallbacks use in-process buffers that are cleared on restart.
 
 ```bash
 cd backend/api
-npx prisma migrate status
 npm run db:generate
 npm run db:migrate
+npm run db:migrate:status
+npm run db:migrate:deploy
 ```
 
 ### Safety notes
 
 - `npm run db:migrate` maps to `prisma migrate dev`, which is appropriate for development workflows but is not, by itself, a production change-management process.
-- Production migration application should be reviewed and orchestrated explicitly outside this repo snapshot.
+- `npm run db:migrate:status` checks whether the target database is aligned with the checked-in Prisma migrations.
+- `npm run db:migrate:deploy` applies checked-in migrations without creating development migration files and is the production deployment entrypoint.
 - Back up PostgreSQL before destructive data operations.
 - Do not rely on manual table truncation as a generic recovery procedure unless you have already captured a restorable backup and understand the downstream effects on indexer and reconciliation state.
 
@@ -180,8 +182,8 @@ npm run db:migrate
 - `k8s/base/frontend.yaml` currently probes `/api/health`, but the Next.js app in this repository does not implement that route.
 - There is no checked-in backend Kubernetes manifest matching the API gateway.
 - Production database-backed auth and alert state requires the `AuthNonce`,
-  `AuthRefreshSession`, and `AlertEvent` Prisma migrations to be applied before
-  enabling the API gateway.
+  `AuthRefreshSession`, and `AlertEvent` Prisma migrations to be applied with
+  `npm run db:migrate:deploy` before enabling the API gateway.
 
 ## 9. Operator Checklist
 

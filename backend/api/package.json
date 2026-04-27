@@ -21,6 +21,8 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "typecheck": "prisma generate && npm --prefix ../../sdk/typescript run build && tsc --noEmit -p tsconfig.json",
     "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:status": "prisma migrate status",
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",

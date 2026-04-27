@@ -45,14 +45,14 @@ This document is not a launch promise. It is a snapshot-aligned record of:
 | Kubernetes readiness | Blocked | Only a frontend manifest is checked in, and it points to `/api/health`, which the current Next.js app does not implement |
 | Admin/ops authentication bootstrap | Partial | Wallet-backed nonce login, refresh rotation, logout revocation, and role-gated ops routes exist; production deployments must apply the auth-state migration and configure operator/admin address lists |
 | Data persistence model | Partial | Prisma-backed database state exists for auth, reconciliation, indexer, and alert events; Redis-backed cache is required for production |
-| Migration workflow | Partial | `prisma migrate dev` is scripted, but a production migration apply path is not documented as code here |
+| Migration workflow | Partial | Development and production Prisma migration scripts exist; rollback still depends on operator-managed database snapshots |
 
 ## 5. Launch Blockers From The Current Repo State
 
 - Complete or replace `backend/infra/docker-compose.yml` so it only references assets that exist in the repository or deployment system.
 - Add or align frontend health endpoints with `k8s/base/frontend.yaml`, or update the deployment manifest outside this doc pass.
 - Exercise the `/v1/auth` nonce/login/refresh/logout workflow in staging and provision operator/admin address lists for protected routes such as `/v1/alerts` and `/v1/reconciliation/status`.
-- Document and automate the production migration path beyond `prisma migrate dev`.
+- Exercise `npm run db:migrate:deploy` in staging and pair it with tested database snapshot/restore procedures.
 - Track the temporary Next.js dependency exception in `docs/security/dependency-exceptions.md` until upstream stops bundling `postcss < 8.5.10`.
 
 ## 6. Operator Assumptions That Should Be Treated As Explicit

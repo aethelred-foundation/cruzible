@@ -66,6 +66,8 @@ npm run dev
 npm run build
 npm test
 npm run test:coverage
+npm run db:migrate:status
+npm run db:migrate:deploy
 
 # Contract tests
 cd ../contracts
