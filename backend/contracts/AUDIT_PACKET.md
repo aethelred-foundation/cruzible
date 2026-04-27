@@ -82,7 +82,7 @@ These are not hidden TODOs. They are explicit pre-production review items:
 | Staging deployment manifest        | Open   | Record real code IDs, contract addresses, admins, operators, and artifact checksums.   |
 | Staging deployment                 | Open   | Instantiate all contracts on a real chain and exercise core cross-contract flows.      |
 | Governance feeder decentralization | Open   | Define governance v2 feeder election or formally accept the bootstrapped feeder model. |
-| Frontend allowance flow            | Open   | Ensure unstake UX obtains CW20 `BurnFrom` allowance before submitting vault unstake.   |
+| Frontend allowance flow            | Ready  | Vault unstake checks stAETHEL allowance and obtains exact approval before submission.  |
 | Release artifact signing           | Open   | Add signer identity and detached signatures if required by launch policy.              |
 
 ## Minimum Staging Drill

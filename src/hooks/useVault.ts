@@ -14,16 +14,22 @@ import {
   useReadContract,
   useReadContracts,
   useWriteContract,
-  useWaitForTransactionReceipt,
   useAccount,
   useConfig,
 } from "wagmi";
-import { waitForTransactionReceipt } from "wagmi/actions";
-import { parseEther, formatEther, zeroAddress, type Hash } from "viem";
-import { CruzibleABI, ERC20ABI } from "@/config/abis";
+import { readContract, waitForTransactionReceipt } from "wagmi/actions";
+import {
+  parseEther,
+  formatEther,
+  zeroAddress,
+  type Address,
+  type Hash,
+} from "viem";
+import { CruzibleABI, ERC20ABI, StAETHELABI } from "@/config/abis";
 import { getContractAddress } from "@/config/contracts";
 import { activeChain } from "@/config/wagmi";
 import { useApp, type AppContextValue } from "@/contexts/AppContext";
+import { needsTokenApproval } from "@/lib/allowance";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -62,6 +68,15 @@ function canSubmitTransaction(
   wallet: WalletState,
   addNotification: AddNotification,
 ): boolean {
+  if (!wallet.connected || !wallet.address) {
+    addNotification(
+      "error",
+      "Wallet Not Connected",
+      "Connect a wallet before submitting this transaction.",
+    );
+    return false;
+  }
+
   if (wallet.isWrongNetwork) {
     notifyWrongNetwork(addNotification);
     return false;
@@ -303,6 +318,7 @@ export function useUnstake() {
   const config = useConfig();
   const { writeContractAsync, isPending } = useWriteContract();
   const cruzibleAddr = getContractAddress("cruzible");
+  const stAethelAddr = getContractAddress("stAethel");
 
   const unstake = useCallback(
     async (sharesEther: string): Promise<Hash | undefined> => {
@@ -315,12 +331,79 @@ export function useUnstake() {
         return undefined;
       }
 
+      if (!stAethelAddr) {
+        addNotification(
+          "error",
+          "Configuration Error",
+          "stAETHEL token address is not configured or invalid",
+        );
+        return undefined;
+      }
+
       if (!canSubmitTransaction(wallet, addNotification)) {
         return undefined;
       }
 
       try {
         const shares = parseEther(sharesEther);
+
+        if (shares <= 0n) {
+          addNotification(
+            "error",
+            "Invalid Amount",
+            "Enter a stAETHEL amount greater than zero.",
+          );
+          return undefined;
+        }
+
+        addNotification(
+          "info",
+          "Checking Allowance",
+          "Verifying the vault can burn the requested stAETHEL amount...",
+        );
+
+        const allowance = (await readContract(config, {
+          address: stAethelAddr,
+          abi: StAETHELABI,
+          functionName: "allowance",
+          args: [wallet.address as Address, cruzibleAddr],
+          chainId: activeChain.id,
+        })) as bigint;
+
+        if (needsTokenApproval(allowance, shares)) {
+          addNotification(
+            "info",
+            "Approving stAETHEL",
+            "Please approve the vault to burn exactly this unstake amount...",
+          );
+
+          const approveHash = await writeContractAsync({
+            address: stAethelAddr,
+            abi: StAETHELABI,
+            functionName: "approve",
+            args: [cruzibleAddr, shares],
+            chainId: activeChain.id,
+          });
+
+          addNotification(
+            "info",
+            "Confirming Approval",
+            "Waiting for stAETHEL approval to be confirmed on-chain...",
+          );
+
+          const approvalReceipt = await waitForTransactionReceipt(config, {
+            hash: approveHash,
+          });
+
+          if (approvalReceipt.status === "reverted") {
+            addNotification(
+              "error",
+              "Approval Reverted",
+              "The stAETHEL approval was reverted on-chain.",
+            );
+            return undefined;
+          }
+        }
 
         addNotification(
           "info",
@@ -381,7 +464,14 @@ export function useUnstake() {
         return undefined;
       }
     },
-    [writeContractAsync, config, cruzibleAddr, wallet, addNotification],
+    [
+      writeContractAsync,
+      config,
+      cruzibleAddr,
+      stAethelAddr,
+      wallet,
+      addNotification,
+    ],
   );
 
   return { unstake, isPending };

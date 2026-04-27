@@ -27,7 +27,7 @@ Implemented remediation areas:
 - Model registry registration fee enforcement and job-manager authorization.
 - Seal manager cross-contract job check.
 
-Vault unstake uses the staking token `BurnFrom` flow, so frontends or transaction builders must obtain user allowance for the vault before unstaking.
+Vault unstake uses the staking token `BurnFrom` flow, so frontends or transaction builders must obtain user allowance for the vault before unstaking. The web vault flow checks stAETHEL allowance and requests exact approval before submitting an unstake transaction.
 
 Local `cargo test` from `backend/contracts` passes with 233 tests:
 
