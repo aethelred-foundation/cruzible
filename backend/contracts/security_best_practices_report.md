@@ -40,7 +40,7 @@ The current code includes remediations for the previously tracked critical and h
 | AI job payment claims     | Paid-state transition prevents repeated settlement of the same verified job.                                      |
 | Governance voting         | Snapshot voting power and quorum controls replace placeholder voting and execution logic.                         |
 | Governance feeder oracle  | Multi-feeder median consensus rejects unsafe quorum, tolerance, feeder capacity, and authority settings.          |
-| Model registry fees       | Registration fee enforcement is active.                                                                           |
+| Model registry fees       | Registration fee amount and denom enforcement is active.                                                          |
 | Model registry job counts | Job-count mutation is restricted to the authorized job manager.                                                   |
 | Seal manager provenance   | Seal creation verifies the referenced job through the configured job manager.                                     |
 
@@ -60,17 +60,17 @@ Passing test counts:
 | `ai_job_manager` |            52 |
 | `cw20_staking`   |            42 |
 | `governance`     |            49 |
-| `model_registry` |            47 |
+| `model_registry` |            50 |
 | `seal_manager`   |            27 |
 | Doc tests        |             0 |
-| **Total**        |       **241** |
+| **Total**        |       **244** |
 
 ## Audit-Candidate Readiness
 
 The workspace is suitable for an external audit candidate branch after the following evidence is packaged:
 
 - Current source tree and Cargo lockfile.
-- Reproducible `cargo test` output showing 241 passing tests.
+- Reproducible `cargo test` output showing 244 passing tests.
 - Commit-scoped wasm artifacts, `SHA256SUMS`, and `manifest.json` from CI.
 - Detached artifact signatures generated with `RELEASE_SIGNING.md` before launch.
 - Strict release manifest reconciliation against the signed artifact directory.

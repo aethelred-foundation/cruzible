@@ -180,6 +180,15 @@ class ReleaseManifestValidationTests(unittest.TestCase):
 
             self.assert_manifest_fails(manifest_path)
 
+    def test_model_registry_fee_denom_must_match_config(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manifest = self.load_example()
+            model_registry = self.contract_by_name(manifest, "model_registry")
+            model_registry["instantiate_msg"]["registration_fee_denom"] = "wrongdenom"
+            manifest_path = self.write_manifest(Path(temp_dir), manifest)
+
+            self.assert_manifest_fails(manifest_path)
+
     def test_post_instantiate_action_required_for_model_registry_role(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             manifest = self.load_example()

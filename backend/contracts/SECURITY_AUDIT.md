@@ -31,7 +31,7 @@ Contracts reviewed:
 | AI job payment              | Verified job payment could be claimed repeatedly.                   | Remediated with Paid-state double-claim guard.                                    |
 | Governance voting           | Placeholder voting power and quorum allowed capture.                | Remediated with snapshot/quorum controls.                                         |
 | Governance feeder control   | Admin-only feeder membership could centralize oracle control.       | Remediated for production mode with governance-authorized feeder mutations.       |
-| Model registry fees         | Registration fee was not enforced.                                  | Remediated with fee validation.                                                   |
+| Model registry fees         | Registration fee was not enforced.                                  | Remediated with fee amount and denom validation.                                  |
 | Model registry usage counts | Public job-count mutation could corrupt metrics.                    | Remediated with job-manager authorization.                                        |
 | Seal provenance             | Seals could be created without verified upstream job evidence.      | Remediated with cross-contract job verification.                                  |
 
@@ -45,10 +45,10 @@ Local `cargo test` from `backend/contracts` passes:
 | `ai_job_manager` |            52 |
 | `cw20_staking`   |            42 |
 | `governance`     |            49 |
-| `model_registry` |            47 |
+| `model_registry` |            50 |
 | `seal_manager`   |            27 |
 | Doc tests        |             0 |
-| **Total**        |       **241** |
+| **Total**        |       **244** |
 
 ## Residual Review Focus
 

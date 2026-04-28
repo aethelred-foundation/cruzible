@@ -336,6 +336,11 @@ def validate_model_registry_instantiate(contract: dict[str, Any]) -> None:
         f"{path}.config.registration_fee",
     ):
         fail(f"{msg_path}.registration_fee must match {path}.config.registration_fee")
+    if require_string(msg.get("registration_fee_denom"), f"{msg_path}.registration_fee_denom") != require_string(
+        config.get("registration_fee_denom"),
+        f"{path}.config.registration_fee_denom",
+    ):
+        fail(f"{msg_path}.registration_fee_denom must match {path}.config.registration_fee_denom")
     verification_required = require_bool(msg.get("verification_required"), f"{msg_path}.verification_required")
     verifiers = require_unique_string_list(msg.get("verifiers"), f"{msg_path}.verifiers")
     if verification_required and not verifiers:
@@ -487,6 +492,7 @@ def validate_contract_wiring(contracts: dict[str, dict[str, Any]]) -> None:
         model_registry_config.get("registration_fee"),
         f"{model_registry_path}.config.registration_fee",
     )
+    validate_required_config_string(model_registry_config, "registration_fee_denom", model_registry_path)
 
     if validate_required_role(seal_manager_roles, "ai_job_manager", seal_manager_path) != ai_jobs["address"]:
         fail(f"{seal_manager_path}.roles.ai_job_manager must match ai_job_manager address")
@@ -587,6 +593,17 @@ def validate_post_instantiate_actions(root: dict[str, Any], contracts: dict[str,
             registration_fee,
             f"$.post_instantiate_actions[{index}].message.update_config.registration_fee",
         )
+    registration_fee_denom = update_config.get("registration_fee_denom")
+    if registration_fee_denom is not None:
+        model_registry_config = require_mapping(model_registry.get("config"), "$.contracts[model_registry].config")
+        if require_string(
+            registration_fee_denom,
+            f"$.post_instantiate_actions[{index}].message.update_config.registration_fee_denom",
+        ) != require_string(
+            model_registry_config.get("registration_fee_denom"),
+            "$.contracts[model_registry].config.registration_fee_denom",
+        ):
+            fail("model_registry_set_ai_job_manager registration_fee_denom must match final config")
 
 
 def read_json_file(path: Path, label: str) -> dict[str, Any]:

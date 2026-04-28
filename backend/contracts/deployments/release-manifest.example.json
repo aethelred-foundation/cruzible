@@ -166,6 +166,7 @@
       "admin": "aethel1admin00000000000000000000000000000000000",
       "instantiate_msg": {
         "registration_fee": "1000000",
+        "registration_fee_denom": "uaethel",
         "verification_required": true,
         "verifiers": [
           "aethel1verifier100000000000000000000000000000",
@@ -177,7 +178,8 @@
         "ai_job_manager": "aethel1aijobs000000000000000000000000000000000"
       },
       "config": {
-        "registration_fee": "1000000"
+        "registration_fee": "1000000",
+        "registration_fee_denom": "uaethel"
       }
     },
     {
@@ -274,6 +276,7 @@
       "message": {
         "update_config": {
           "registration_fee": null,
+          "registration_fee_denom": null,
           "ai_job_manager": "aethel1aijobs000000000000000000000000000000000"
         }
       }

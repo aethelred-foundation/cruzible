@@ -24,12 +24,12 @@ Implemented remediation areas:
 - Vault reward index, double-claim protection, stAETHEL mint/burn lifecycle, rounding controls, and donation/accounted-balance controls.
 - AI job Paid-state guard to prevent repeated settlement.
 - Governance snapshot, quorum, multi-feeder total-bonded oracle, and governance-controlled feeder membership controls.
-- Model registry registration fee enforcement and job-manager authorization.
+- Model registry registration fee amount/denom enforcement and job-manager authorization.
 - Seal manager cross-contract job check.
 
 Vault unstake uses the staking token `BurnFrom` flow, so frontends or transaction builders must obtain user allowance for the vault before unstaking. The web vault flow checks stAETHEL allowance and requests exact approval before submitting an unstake transaction.
 
-Local `cargo test` from `backend/contracts` passes with 241 tests:
+Local `cargo test` from `backend/contracts` passes with 244 tests:
 
 | Suite            | Passing tests |
 | ---------------- | ------------: |
@@ -37,7 +37,7 @@ Local `cargo test` from `backend/contracts` passes with 241 tests:
 | `ai_job_manager` |            52 |
 | `cw20_staking`   |            42 |
 | `governance`     |            49 |
-| `model_registry` |            47 |
+| `model_registry` |            50 |
 | `seal_manager`   |            27 |
 | Doc tests        |             0 |
 
@@ -74,7 +74,7 @@ manager.
 Before external audit:
 
 - [x] Prior critical remediations implemented in live code.
-- [x] Local `cargo test` passes with 241 tests.
+- [x] Local `cargo test` passes with 244 tests.
 - [x] CI workflow enforces test, fmt, clippy, and wasm release build gates.
 - [x] CI workflow uploads commit-scoped wasm artifacts, checksums, and manifest.
 - [x] Known residual review items documented for auditor review.

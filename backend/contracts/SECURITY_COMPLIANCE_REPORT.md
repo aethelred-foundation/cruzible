@@ -22,13 +22,13 @@ The live code includes remediations for the previously tracked critical issues, 
 | Governance feeder oracle     | Multi-feeder median consensus with tolerance, cooldown, quarantine, and caps.  |
 | Governance feeder control    | Production-mode feeder membership changes require governance self-execution.   |
 | Governance quorum            | Implemented to gate proposal execution.                                        |
-| Model registry fees          | Implemented registration fee enforcement.                                      |
+| Model registry fees          | Implemented registration fee amount and denom enforcement.                     |
 | Model registry authorization | Implemented job-manager authorization for job-count updates.                   |
 | Seal manager job provenance  | Implemented cross-contract job checks before seal creation.                    |
 
 ## Test Evidence
 
-Local `cargo test` from `backend/contracts` passes with 241 total tests:
+Local `cargo test` from `backend/contracts` passes with 244 total tests:
 
 | Suite            | Passing tests |
 | ---------------- | ------------: |
@@ -36,7 +36,7 @@ Local `cargo test` from `backend/contracts` passes with 241 total tests:
 | `ai_job_manager` |            52 |
 | `cw20_staking`   |            42 |
 | `governance`     |            49 |
-| `model_registry` |            47 |
+| `model_registry` |            50 |
 | `seal_manager`   |            27 |
 | Doc tests        |             0 |
 
@@ -48,9 +48,9 @@ Completed for audit-candidate state:
 - [x] Vault stAETHEL mint/burn lifecycle covered by tests.
 - [x] AI job payment double-claim guard remediated.
 - [x] Governance snapshot, quorum, and feeder-oracle controls remediated.
-- [x] Model registry fee and job-manager authorization remediated.
+- [x] Model registry fee amount/denom and job-manager authorization remediated.
 - [x] Seal manager cross-contract job check remediated.
-- [x] Local `cargo test` evidence passes with 241 tests.
+- [x] Local `cargo test` evidence passes with 244 tests.
 - [x] CI workflow enforces contract fmt, clippy, tests, dependency audit, and wasm release build.
 - [x] CI workflow uploads commit-scoped wasm artifacts, `SHA256SUMS`, and `manifest.json`.
 - [x] Residual review items and deployment assumptions are documented in `AUDIT_PACKET.md`.
