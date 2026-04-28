@@ -56,6 +56,7 @@ Completed for audit-candidate state:
 - [x] Residual review items and deployment assumptions are documented in `AUDIT_PACKET.md`.
 - [x] Release manifest template is checked in and validated in CI.
 - [x] Strict release manifest validation reconciles staging records with signed artifact evidence.
+- [x] Release manifest validation reconciles instantiate messages and funds with reviewed role/config wiring.
 - [x] Release manifest validation requires final post-instantiate CW20 minter and model registry role wiring evidence.
 - [x] Artifact signing and verification scripts are checked in and syntax-checked by CI.
 - [x] Governance feeder oracle config rejects unsafe quorum, tolerance, capacity, and production authority settings.

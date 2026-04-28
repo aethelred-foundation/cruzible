@@ -60,6 +60,9 @@ checksums and manifest.
 - Completed staging manifests must also pass
   `python3 scripts/validate-release-manifest.py --strict <manifest> --artifact-dir audit-artifacts/contracts`
   after release artifacts are signed.
+- Release manifests must record each contract's exact `instantiate_msg` and
+  `instantiate_funds`; the validator reconciles these payloads with the
+  manifest's role, config, artifact, and cross-contract wiring evidence.
 - The CW20 staking token manifest records the bootstrap minter and the
   post-instantiate `UpdateMinter` transaction that makes the vault the final
   minter.
@@ -94,7 +97,7 @@ These are not hidden TODOs. They are explicit pre-production review items:
 | ---------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------- |
 | External audit                     | Open    | Complete independent review and remediate or accept findings.                                                              |
 | Artifact manifest                  | Ready   | `scripts/prepare-audit-artifacts.sh` generates `manifest.json` and `SHA256SUMS`.                                           |
-| Deployment manifest template       | Ready   | `deployments/release-manifest.example.json` is validated in CI.                                                            |
+| Deployment manifest template       | Ready   | `deployments/release-manifest.example.json` validates artifacts, instantiate payloads, funds, and role wiring in CI.       |
 | Staging deployment manifest        | Open    | Record real code IDs, contract addresses, admins, operators, and artifact checksums.                                       |
 | Staging deployment                 | Open    | Instantiate all contracts on a real chain and exercise core cross-contract flows.                                          |
 | Governance feeder decentralization | Ready   | Production manifests require governance-controlled feeder membership; admin mutation remains explicit bootstrap mode only. |
@@ -108,6 +111,8 @@ Before production readiness can be claimed, run a staging drill that covers:
 - Instantiate CW20 staking token with the bootstrap minter, instantiate the
   vault with the deployed token address, then rotate CW20 mint authority to the
   deployed vault.
+- Record and verify every contract's instantiate message, admin, funds, code
+  ID, instantiate transaction hash, and deployed address.
 - Record and verify the CW20 staking token post-instantiate `UpdateMinter`
   action that authorizes the deployed vault as final minter.
 - Stake, compound, unstake, approve, burn, unbond, and claim flows.

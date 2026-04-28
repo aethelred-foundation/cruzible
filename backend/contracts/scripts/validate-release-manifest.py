@@ -30,6 +30,12 @@ ISO_UTC_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 BASIS_POINTS_DENOMINATOR = 10_000
 MAX_GOVERNANCE_FEEDERS = 50
 PRODUCTION_FEEDER_MUTATION_AUTHORITY = "governance"
+MAX_CW20_DECIMALS = 18
+VAULT_MAX_FEE_BPS = 1_000
+VAULT_MIN_SEED_AMOUNT = 1_000_000
+VAULT_MIN_UNBONDING_PERIOD_SECONDS = 86_400
+AI_JOB_MAX_PLATFORM_FEE_BPS = 2_000
+MAX_REQUIRED_TEE_TYPE = 3
 
 
 def fail(message: str) -> None:
@@ -61,11 +67,46 @@ def require_int(value: Any, path: str) -> int:
     return value
 
 
+def require_non_negative_int(value: Any, path: str) -> int:
+    if not isinstance(value, int) or value < 0:
+        fail(f"{path} must be a non-negative integer")
+    return value
+
+
+def require_bool(value: Any, path: str) -> bool:
+    if not isinstance(value, bool):
+        fail(f"{path} must be a boolean")
+    return value
+
+
 def require_numeric_string(value: Any, path: str) -> str:
     text = require_string(value, path)
     if not text.isdigit():
         fail(f"{path} must be a decimal string")
     return text
+
+
+def require_uint128_string(value: Any, path: str, *, allow_zero: bool = True) -> str:
+    text = require_numeric_string(value, path)
+    if not allow_zero and int(text) == 0:
+        fail(f"{path} must be greater than zero")
+    return text
+
+
+def require_unique_string_list(value: Any, path: str, *, min_length: int = 0) -> list[str]:
+    items = require_list(value, path)
+    if len(items) < min_length:
+        fail(f"{path} must contain at least {min_length} entries")
+
+    seen: set[str] = set()
+    strings: list[str] = []
+    for index, item in enumerate(items):
+        text = require_string(item, f"{path}[{index}]")
+        if text in seen:
+            fail(f"{path} contains duplicate {text}")
+        seen.add(text)
+        strings.append(text)
+    return strings
 
 
 def validate_basis_points(value: Any, path: str, *, allow_zero: bool = True) -> int:
@@ -143,6 +184,262 @@ def validate_governance_contract(
     )
 
 
+def parse_instantiate_funds(contract: dict[str, Any], contract_path: str) -> dict[str, str]:
+    funds = require_list(contract.get("instantiate_funds"), f"{contract_path}.instantiate_funds")
+    coins: dict[str, str] = {}
+    for index, raw_coin in enumerate(funds):
+        coin = require_mapping(raw_coin, f"{contract_path}.instantiate_funds[{index}]")
+        denom = require_string(coin.get("denom"), f"{contract_path}.instantiate_funds[{index}].denom")
+        amount = require_uint128_string(coin.get("amount"), f"{contract_path}.instantiate_funds[{index}].amount")
+        if denom in coins:
+            fail(f"{contract_path}.instantiate_funds contains duplicate denom {denom}")
+        coins[denom] = amount
+    return coins
+
+
+def require_no_instantiate_funds(contract: dict[str, Any], contract_path: str) -> None:
+    funds = parse_instantiate_funds(contract, contract_path)
+    if funds:
+        fail(f"{contract_path}.instantiate_funds must be empty")
+
+
+def validate_cw20_instantiate(contract: dict[str, Any]) -> None:
+    path = "$.contracts[cw20_staking]"
+    msg_path = f"{path}.instantiate_msg"
+    msg = require_mapping(contract.get("instantiate_msg"), msg_path)
+    roles = require_mapping(contract.get("roles"), f"{path}.roles")
+    config = require_mapping(contract.get("config"), f"{path}.config")
+    require_no_instantiate_funds(contract, path)
+
+    require_string(msg.get("name"), f"{msg_path}.name")
+    if require_string(msg.get("symbol"), f"{msg_path}.symbol") != require_string(
+        config.get("symbol"),
+        f"{path}.config.symbol",
+    ):
+        fail(f"{msg_path}.symbol must match {path}.config.symbol")
+
+    decimals = require_non_negative_int(msg.get("decimals"), f"{msg_path}.decimals")
+    if decimals > MAX_CW20_DECIMALS:
+        fail(f"{msg_path}.decimals cannot exceed {MAX_CW20_DECIMALS}")
+    if decimals != require_non_negative_int(config.get("decimals"), f"{path}.config.decimals"):
+        fail(f"{msg_path}.decimals must match {path}.config.decimals")
+
+    if require_uint128_string(msg.get("initial_supply"), f"{msg_path}.initial_supply") != "0":
+        fail(f"{msg_path}.initial_supply must be 0 for vault-controlled staking token supply")
+    if require_string(msg.get("minter"), f"{msg_path}.minter") != validate_required_role(
+        roles, "initial_minter", path
+    ):
+        fail(f"{msg_path}.minter must match {path}.roles.initial_minter")
+    if require_uint128_string(msg.get("cap"), f"{msg_path}.cap") != require_uint128_string(
+        config.get("cap"),
+        f"{path}.config.cap",
+    ):
+        fail(f"{msg_path}.cap must match {path}.config.cap")
+
+
+def validate_vault_instantiate(contract: dict[str, Any]) -> None:
+    path = "$.contracts[vault]"
+    msg_path = f"{path}.instantiate_msg"
+    msg = require_mapping(contract.get("instantiate_msg"), msg_path)
+    roles = require_mapping(contract.get("roles"), f"{path}.roles")
+    config = require_mapping(contract.get("config"), f"{path}.config")
+
+    unbonding_period = require_int(msg.get("unbonding_period"), f"{msg_path}.unbonding_period")
+    if unbonding_period < VAULT_MIN_UNBONDING_PERIOD_SECONDS:
+        fail(f"{msg_path}.unbonding_period must be at least {VAULT_MIN_UNBONDING_PERIOD_SECONDS}")
+    if unbonding_period != require_int(
+        config.get("unbonding_period_seconds"),
+        f"{path}.config.unbonding_period_seconds",
+    ):
+        fail(f"{msg_path}.unbonding_period must match {path}.config.unbonding_period_seconds")
+
+    denom = require_string(msg.get("denom"), f"{msg_path}.denom")
+    if denom != require_string(config.get("denom"), f"{path}.config.denom"):
+        fail(f"{msg_path}.denom must match {path}.config.denom")
+    if require_string(msg.get("staking_token"), f"{msg_path}.staking_token") != require_string(
+        config.get("staking_token"),
+        f"{path}.config.staking_token",
+    ):
+        fail(f"{msg_path}.staking_token must match {path}.config.staking_token")
+
+    require_unique_string_list(msg.get("validators"), f"{msg_path}.validators", min_length=1)
+    fee_bps = validate_basis_points(msg.get("fee_bps"), f"{msg_path}.fee_bps")
+    if fee_bps > VAULT_MAX_FEE_BPS:
+        fail(f"{msg_path}.fee_bps cannot exceed {VAULT_MAX_FEE_BPS}")
+
+    min_stake = int(require_uint128_string(msg.get("min_stake"), f"{msg_path}.min_stake", allow_zero=False))
+    max_stake = int(require_uint128_string(msg.get("max_stake"), f"{msg_path}.max_stake", allow_zero=False))
+    if min_stake < VAULT_MIN_SEED_AMOUNT:
+        fail(f"{msg_path}.min_stake must be at least {VAULT_MIN_SEED_AMOUNT}")
+    if min_stake > max_stake:
+        fail(f"{msg_path}.min_stake cannot exceed {msg_path}.max_stake")
+
+    if require_string(msg.get("operator"), f"{msg_path}.operator") != validate_required_role(roles, "operator", path):
+        fail(f"{msg_path}.operator must match {path}.roles.operator")
+    if require_string(msg.get("pauser"), f"{msg_path}.pauser") != validate_required_role(roles, "pauser", path):
+        fail(f"{msg_path}.pauser must match {path}.roles.pauser")
+
+    funds = parse_instantiate_funds(contract, path)
+    if set(funds) != {denom}:
+        fail(f"{path}.instantiate_funds must include exactly one {denom} seed coin")
+    if int(funds[denom]) < VAULT_MIN_SEED_AMOUNT:
+        fail(f"{path}.instantiate_funds {denom} amount must be at least {VAULT_MIN_SEED_AMOUNT}")
+
+
+def validate_ai_job_manager_instantiate(contract: dict[str, Any]) -> None:
+    path = "$.contracts[ai_job_manager]"
+    msg_path = f"{path}.instantiate_msg"
+    msg = require_mapping(contract.get("instantiate_msg"), msg_path)
+    roles = require_mapping(contract.get("roles"), f"{path}.roles")
+    config = require_mapping(contract.get("config"), f"{path}.config")
+    require_no_instantiate_funds(contract, path)
+
+    if require_string(msg.get("payment_denom"), f"{msg_path}.payment_denom") != require_string(
+        config.get("payment_denom"),
+        f"{path}.config.payment_denom",
+    ):
+        fail(f"{msg_path}.payment_denom must match {path}.config.payment_denom")
+
+    min_timeout = require_int(msg.get("min_timeout"), f"{msg_path}.min_timeout")
+    max_timeout = require_int(msg.get("max_timeout"), f"{msg_path}.max_timeout")
+    if min_timeout > max_timeout:
+        fail(f"{msg_path}.min_timeout cannot exceed {msg_path}.max_timeout")
+    require_uint128_string(msg.get("min_payment"), f"{msg_path}.min_payment", allow_zero=False)
+
+    platform_fee_bps = validate_basis_points(msg.get("platform_fee_bps"), f"{msg_path}.platform_fee_bps")
+    if platform_fee_bps > AI_JOB_MAX_PLATFORM_FEE_BPS:
+        fail(f"{msg_path}.platform_fee_bps cannot exceed {AI_JOB_MAX_PLATFORM_FEE_BPS}")
+    required_tee_type = require_non_negative_int(msg.get("required_tee_type"), f"{msg_path}.required_tee_type")
+    if required_tee_type > MAX_REQUIRED_TEE_TYPE:
+        fail(f"{msg_path}.required_tee_type cannot exceed {MAX_REQUIRED_TEE_TYPE}")
+
+    if require_string(msg.get("fee_collector"), f"{msg_path}.fee_collector") != validate_required_role(
+        roles, "fee_collector", path
+    ):
+        fail(f"{msg_path}.fee_collector must match {path}.roles.fee_collector")
+    if require_string(msg.get("model_registry"), f"{msg_path}.model_registry") != require_string(
+        config.get("model_registry"),
+        f"{path}.config.model_registry",
+    ):
+        fail(f"{msg_path}.model_registry must match {path}.config.model_registry")
+
+
+def validate_model_registry_instantiate(contract: dict[str, Any]) -> None:
+    path = "$.contracts[model_registry]"
+    msg_path = f"{path}.instantiate_msg"
+    msg = require_mapping(contract.get("instantiate_msg"), msg_path)
+    config = require_mapping(contract.get("config"), f"{path}.config")
+    require_no_instantiate_funds(contract, path)
+
+    if require_uint128_string(msg.get("registration_fee"), f"{msg_path}.registration_fee") != require_numeric_string(
+        config.get("registration_fee"),
+        f"{path}.config.registration_fee",
+    ):
+        fail(f"{msg_path}.registration_fee must match {path}.config.registration_fee")
+    verification_required = require_bool(msg.get("verification_required"), f"{msg_path}.verification_required")
+    verifiers = require_unique_string_list(msg.get("verifiers"), f"{msg_path}.verifiers")
+    if verification_required and not verifiers:
+        fail(f"{msg_path}.verifiers must not be empty when verification_required is true")
+
+
+def validate_seal_manager_instantiate(contract: dict[str, Any]) -> None:
+    path = "$.contracts[seal_manager]"
+    msg_path = f"{path}.instantiate_msg"
+    msg = require_mapping(contract.get("instantiate_msg"), msg_path)
+    roles = require_mapping(contract.get("roles"), f"{path}.roles")
+    config = require_mapping(contract.get("config"), f"{path}.config")
+    require_no_instantiate_funds(contract, path)
+
+    if require_string(msg.get("ai_job_manager"), f"{msg_path}.ai_job_manager") != validate_required_role(
+        roles, "ai_job_manager", path
+    ):
+        fail(f"{msg_path}.ai_job_manager must match {path}.roles.ai_job_manager")
+    min_validators = require_int(msg.get("min_validators"), f"{msg_path}.min_validators")
+    max_validators = require_int(msg.get("max_validators"), f"{msg_path}.max_validators")
+    if min_validators > max_validators:
+        fail(f"{msg_path}.min_validators cannot exceed {msg_path}.max_validators")
+    if min_validators != require_int(config.get("min_validators"), f"{path}.config.min_validators"):
+        fail(f"{msg_path}.min_validators must match {path}.config.min_validators")
+    if max_validators != require_int(config.get("max_validators"), f"{path}.config.max_validators"):
+        fail(f"{msg_path}.max_validators must match {path}.config.max_validators")
+
+    default_expiration = require_int(msg.get("default_expiration"), f"{msg_path}.default_expiration")
+    max_expiration = require_int(msg.get("max_expiration"), f"{msg_path}.max_expiration")
+    if default_expiration > max_expiration:
+        fail(f"{msg_path}.default_expiration cannot exceed {msg_path}.max_expiration")
+
+
+def validate_governance_instantiate(contract: dict[str, Any]) -> None:
+    path = "$.contracts[governance]"
+    msg_path = f"{path}.instantiate_msg"
+    msg = require_mapping(contract.get("instantiate_msg"), msg_path)
+    roles = require_mapping(contract.get("roles"), f"{path}.roles")
+    config = require_mapping(contract.get("config"), f"{path}.config")
+    require_no_instantiate_funds(contract, path)
+
+    for key in ("voting_period", "execution_delay", "snapshot_period", "max_staleness", "min_activation_gap"):
+        require_int(msg.get(key), f"{msg_path}.{key}")
+    require_uint128_string(msg.get("min_deposit"), f"{msg_path}.min_deposit", allow_zero=False)
+    require_string(msg.get("deposit_denom"), f"{msg_path}.deposit_denom")
+
+    governance_bps_fields = {
+        "quorum": "quorum_bps",
+        "threshold": "threshold_bps",
+        "veto_threshold": "veto_threshold_bps",
+        "max_delta_bps": "max_delta_bps",
+        "feeder_tolerance_bps": "feeder_tolerance_bps",
+    }
+    for msg_key, config_key in governance_bps_fields.items():
+        msg_value = validate_basis_points(msg.get(msg_key), f"{msg_path}.{msg_key}", allow_zero=False)
+        if config_key in config and msg_value != validate_basis_points(
+            config.get(config_key),
+            f"{path}.config.{config_key}",
+            allow_zero=False,
+        ):
+            fail(f"{msg_path}.{msg_key} must match {path}.config.{config_key}")
+
+    min_feeder_quorum = require_int(msg.get("min_feeder_quorum"), f"{msg_path}.min_feeder_quorum")
+    if min_feeder_quorum != require_int(config.get("min_feeder_quorum"), f"{path}.config.min_feeder_quorum"):
+        fail(f"{msg_path}.min_feeder_quorum must match {path}.config.min_feeder_quorum")
+    if require_int(msg.get("feeder_mutation_cooldown"), f"{msg_path}.feeder_mutation_cooldown") != require_int(
+        config.get("feeder_mutation_cooldown_seconds"),
+        f"{path}.config.feeder_mutation_cooldown_seconds",
+    ):
+        fail(f"{msg_path}.feeder_mutation_cooldown must match {path}.config.feeder_mutation_cooldown_seconds")
+    if require_int(msg.get("feeder_quarantine_period"), f"{msg_path}.feeder_quarantine_period") != require_int(
+        config.get("feeder_quarantine_period_seconds"),
+        f"{path}.config.feeder_quarantine_period_seconds",
+    ):
+        fail(f"{msg_path}.feeder_quarantine_period must match {path}.config.feeder_quarantine_period_seconds")
+    if require_string(msg.get("feeder_mutation_authority"), f"{msg_path}.feeder_mutation_authority") != require_string(
+        config.get("feeder_mutation_authority"),
+        f"{path}.config.feeder_mutation_authority",
+    ):
+        fail(f"{msg_path}.feeder_mutation_authority must match {path}.config.feeder_mutation_authority")
+
+    initial_feeders = require_unique_string_list(
+        msg.get("initial_feeders"),
+        f"{msg_path}.initial_feeders",
+        min_length=3,
+    )
+    manifest_feeders = require_unique_string_list(
+        roles.get("total_bonded_feeders"),
+        f"{path}.roles.total_bonded_feeders",
+        min_length=3,
+    )
+    if initial_feeders != manifest_feeders:
+        fail(f"{msg_path}.initial_feeders must match {path}.roles.total_bonded_feeders")
+
+
+def validate_contract_instantiation(contracts: dict[str, dict[str, Any]]) -> None:
+    validate_cw20_instantiate(contracts["cw20_staking"])
+    validate_vault_instantiate(contracts["vault"])
+    validate_ai_job_manager_instantiate(contracts["ai_job_manager"])
+    validate_model_registry_instantiate(contracts["model_registry"])
+    validate_seal_manager_instantiate(contracts["seal_manager"])
+    validate_governance_instantiate(contracts["governance"])
+
+
 def validate_contract_wiring(contracts: dict[str, dict[str, Any]]) -> None:
     cw20 = contracts["cw20_staking"]
     vault = contracts["vault"]
@@ -186,12 +483,21 @@ def validate_contract_wiring(contracts: dict[str, dict[str, Any]]) -> None:
 
     if validate_required_role(model_registry_roles, "ai_job_manager", model_registry_path) != ai_jobs["address"]:
         fail(f"{model_registry_path}.roles.ai_job_manager must match ai_job_manager address")
-    require_numeric_string(model_registry_config.get("registration_fee"), f"{model_registry_path}.config.registration_fee")
+    require_numeric_string(
+        model_registry_config.get("registration_fee"),
+        f"{model_registry_path}.config.registration_fee",
+    )
 
     if validate_required_role(seal_manager_roles, "ai_job_manager", seal_manager_path) != ai_jobs["address"]:
         fail(f"{seal_manager_path}.roles.ai_job_manager must match ai_job_manager address")
-    min_validators = require_int(seal_manager_config.get("min_validators"), f"{seal_manager_path}.config.min_validators")
-    max_validators = require_int(seal_manager_config.get("max_validators"), f"{seal_manager_path}.config.max_validators")
+    min_validators = require_int(
+        seal_manager_config.get("min_validators"),
+        f"{seal_manager_path}.config.min_validators",
+    )
+    max_validators = require_int(
+        seal_manager_config.get("max_validators"),
+        f"{seal_manager_path}.config.max_validators",
+    )
     if min_validators > max_validators:
         fail(f"{seal_manager_path}.config.min_validators cannot exceed max_validators")
 
@@ -334,6 +640,12 @@ def validate_strict_release_evidence(root: dict[str, Any]) -> None:
             value = require_string(artifact_obj.get(key), f"$.artifacts[{index}].{key}")
             if len(set(value.lower())) == 1:
                 fail(f"$.artifacts[{index}].{key} appears to be placeholder evidence")
+
+    for index, contract in enumerate(require_list(root.get("contracts"), "$.contracts")):
+        contract_obj = require_mapping(contract, f"$.contracts[{index}]")
+        tx_hash = require_string(contract_obj.get("instantiate_tx_hash"), f"$.contracts[{index}].instantiate_tx_hash")
+        if len(set(tx_hash.lower())) == 1:
+            fail(f"$.contracts[{index}].instantiate_tx_hash appears to be placeholder evidence")
 
     for index, action in enumerate(require_list(root.get("post_instantiate_actions"), "$.post_instantiate_actions")):
         action_obj = require_mapping(action, f"$.post_instantiate_actions[{index}]")
@@ -526,6 +838,7 @@ def validate_manifest(path: Path, *, strict: bool = False, artifact_dir: Path | 
     if missing_contracts:
         fail(f"missing contracts: {', '.join(sorted(missing_contracts))}")
 
+    validate_contract_instantiation(contract_by_name)
     validate_contract_wiring(contract_by_name)
     validate_post_instantiate_actions(root, contract_by_name)
     if strict:

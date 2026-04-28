@@ -74,6 +74,8 @@ The workspace is suitable for an external audit candidate branch after the follo
 - Commit-scoped wasm artifacts, `SHA256SUMS`, and `manifest.json` from CI.
 - Detached artifact signatures generated with `RELEASE_SIGNING.md` before launch.
 - Strict release manifest reconciliation against the signed artifact directory.
+- Exact instantiate messages and funds reconciled against reviewed
+  cross-contract role/config wiring.
 - Post-instantiate role wiring evidence for contract relationships that cannot
   be final at first instantiation, including CW20 minter handoff and model
   registry job-manager authorization.

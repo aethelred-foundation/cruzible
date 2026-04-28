@@ -45,6 +45,9 @@ class ReleaseManifestValidationTests(unittest.TestCase):
     def action_by_name(self, manifest: dict, name: str) -> dict:
         return next(action for action in manifest["post_instantiate_actions"] if action["name"] == name)
 
+    def contract_by_name(self, manifest: dict, name: str) -> dict:
+        return next(contract for contract in manifest["contracts"] if contract["name"] == name)
+
     def strict_manifest(self) -> dict:
         manifest = self.load_example()
         git_commit = "1234567890abcdef1234567890abcdef12345678"
@@ -56,6 +59,8 @@ class ReleaseManifestValidationTests(unittest.TestCase):
 
         for index, artifact in enumerate(manifest["artifacts"], start=1):
             artifact["upload_tx_hash"] = f"{index:064x}"
+        for index, contract in enumerate(manifest["contracts"], start=20):
+            contract["instantiate_tx_hash"] = f"{index:064x}"
         for index, action in enumerate(manifest["post_instantiate_actions"], start=10):
             action["tx_hash"] = f"{index:064x}"
         return manifest
@@ -134,8 +139,43 @@ class ReleaseManifestValidationTests(unittest.TestCase):
     def test_cross_contract_wiring_rejects_wrong_staking_token(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             manifest = self.load_example()
-            vault = next(contract for contract in manifest["contracts"] if contract["name"] == "vault")
+            vault = self.contract_by_name(manifest, "vault")
             vault["config"]["staking_token"] = "aethel1wrongstakingtoken000000000000000000000000"
+            manifest_path = self.write_manifest(Path(temp_dir), manifest)
+
+            self.assert_manifest_fails(manifest_path)
+
+    def test_instantiate_msg_required_for_each_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manifest = self.load_example()
+            self.contract_by_name(manifest, "vault").pop("instantiate_msg")
+            manifest_path = self.write_manifest(Path(temp_dir), manifest)
+
+            self.assert_manifest_fails(manifest_path)
+
+    def test_instantiate_msg_must_match_manifest_wiring(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manifest = self.load_example()
+            vault = self.contract_by_name(manifest, "vault")
+            vault["instantiate_msg"]["staking_token"] = "aethel1wrongstakingtoken000000000000000000000000"
+            manifest_path = self.write_manifest(Path(temp_dir), manifest)
+
+            self.assert_manifest_fails(manifest_path)
+
+    def test_vault_instantiate_funds_required(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manifest = self.load_example()
+            vault = self.contract_by_name(manifest, "vault")
+            vault["instantiate_funds"] = []
+            manifest_path = self.write_manifest(Path(temp_dir), manifest)
+
+            self.assert_manifest_fails(manifest_path)
+
+    def test_governance_instantiate_feeders_must_match_roles(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manifest = self.load_example()
+            governance = self.contract_by_name(manifest, "governance")
+            governance["instantiate_msg"]["initial_feeders"] = governance["instantiate_msg"]["initial_feeders"][:2]
             manifest_path = self.write_manifest(Path(temp_dir), manifest)
 
             self.assert_manifest_fails(manifest_path)
