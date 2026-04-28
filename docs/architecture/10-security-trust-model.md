@@ -240,22 +240,23 @@ The following are **known trust dependencies** that have been reviewed and accep
 
 **Acceptance**: Permanent — inherent to the cross-chain architecture. External audit should verify the cross-layer hash agreement logic.
 
-### 6.3 Governance Feeder Membership Control (Temporary)
+### 6.3 Governance Feeder Membership Control (Config-Gated)
 
-**Description**: The governance oracle uses multi-feeder total-bonded consensus, but feeder membership is still managed by admin-only `add_feeder` / `remove_feeder` operations. There is no on-chain community election mechanism for feeder membership yet.
+**Description**: The governance oracle uses multi-feeder total-bonded consensus and supports a production mode where feeder membership changes must be executed by the governance contract itself, normally through a passed proposal self-call. Admin-managed membership remains available only as an explicit bootstrap/test authority mode.
 
-**Justification**: Pre-mainnet simplification. The feeder set must be tightly controlled during initial deployment to prevent manipulation of governance parameters. Decentralized feeder election remains a governance v2 upgrade item.
+**Justification**: Production deployments need feeder-set changes to follow the same snapshot, quorum, threshold, and timelock controls as other governance decisions. Bootstrap deployments may still need admin authority before the initial independent feeder set exists, so the authority mode is explicit and release-manifest validated.
 
 **Mitigations in place**:
 
+- Production release manifests require `feeder_mutation_authority = governance`
 - Oracle epoch invalidation prevents stale feeder submissions after rotation
 - Ambiguity guard rejects split-brain feeder clusters with different medians
 - Sliding window consensus with true median is resistant to single-feeder manipulation
 - 3-of-5 quorum ensures no single feeder can drive consensus
 - Feeder mutation cooldown and quarantine limit rapid cohort reshaping
-- Instantiation rejects zero quorum, out-of-range tolerance, and oversized feeder capacity
+- Instantiation rejects zero quorum, out-of-range tolerance, undersized governance-mode initial feeder sets, duplicate initial feeders, and oversized feeder capacity
 
-**Acceptance**: Temporary — the bootstrapped feeder membership model is accepted for audit-candidate/staging only. Production launch should either add on-chain feeder election or record explicit governance risk acceptance for the operator-controlled membership model.
+**Acceptance**: Production deployments must use governance-controlled feeder membership. Admin-managed feeder mutation is accepted only for bootstrap/local testing and must not appear in a production release manifest.
 
 ---
 

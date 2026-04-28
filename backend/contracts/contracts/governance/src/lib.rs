@@ -52,10 +52,10 @@ pub enum ContractError {
     #[error("Voting has not started yet (snapshot window still open)")]
     VotingNotOpenYet {},
     #[error(
-        "Total bonded value is stale: admin must call UpdateTotalBonded before proposal activation"
+        "Total bonded value is stale: feeder consensus must refresh UpdateTotalBonded before proposal activation"
     )]
     StaleTotalBonded {},
-    #[error("Total bonded inconsistency: participating voter weights exceed admin-reported total bonded")]
+    #[error("Total bonded inconsistency: participating voter weights exceed oracle-reported total bonded")]
     TotalBondedInconsistency {},
     #[error("Total bonded delta exceeded: value deviates too far from last accepted anchor")]
     TotalBondedDeltaExceeded {},
@@ -111,18 +111,18 @@ pub struct Config {
     /// narrow time range rather than taken lazily at vote time.
     pub snapshot_period: u64,
     /// Maximum age (in seconds) of the TOTAL_BONDED value at proposal activation.
-    /// If the admin's last UpdateTotalBonded call is older than this, the
-    /// proposal cannot activate, constraining the window in which the admin
-    /// could pre-position a favourable quorum denominator.
+    /// If the last feeder-consensus UpdateTotalBonded is older than this, the
+    /// proposal cannot activate, constraining the window in which governance
+    /// could rely on a stale quorum denominator.
     pub max_staleness: u64,
     /// Maximum allowed deviation (basis points) of the current TOTAL_BONDED
-    /// from the last accepted anchor value at proposal activation. Prevents the
-    /// admin from making large jumps to overstate (censor) or understate (ease
+    /// from the last accepted anchor value at proposal activation. Prevents
+    /// large oracle jumps that overstate (censor) or understate (ease
     /// quorum) the denominator. E.g. 1000 = ±10% max drift per activation.
     /// The anchor moves only at activation, not at every UpdateTotalBonded call.
     pub max_delta_bps: u64,
     /// Minimum time (seconds) between successive proposal activations.
-    /// Prevents the admin from "walking" the anchor in rapid bounded steps
+    /// Prevents the quorum anchor from walking in rapid bounded steps
     /// across multiple proposals. E.g. 86400 = 1 day minimum gap.
     pub min_activation_gap: u64,
     /// Minimum number of independent feeder submissions required for the
@@ -135,12 +135,26 @@ pub struct Config {
     /// E.g. 500 = 5% tolerance between feeders.
     pub feeder_tolerance_bps: u64,
     /// Minimum time (seconds) between successive feeder add/remove operations.
-    /// Prevents the admin from rapidly reshaping the oracle cohort. E.g. 86400 = 1 day.
+    /// Prevents rapid reshaping of the oracle cohort. E.g. 86400 = 1 day.
     pub feeder_mutation_cooldown: u64,
     /// Quarantine period (seconds) for newly added feeders. During this time,
-    /// the feeder's submissions are excluded from consensus. Prevents the admin
-    /// from adding aligned feeders for immediate influence. E.g. 3600 = 1 hour.
+    /// the feeder's submissions are excluded from consensus. Prevents aligned
+    /// feeders from being added for immediate influence. E.g. 3600 = 1 hour.
     pub feeder_quarantine_period: u64,
+    /// Authority allowed to mutate oracle feeder membership.
+    /// Production deployments should use `Governance`, which requires a passed
+    /// proposal to execute a self-call back into this contract.
+    pub feeder_mutation_authority: FeederMutationAuthority,
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum FeederMutationAuthority {
+    /// Bootstrap/test mode: the configured admin can add or remove feeders.
+    Admin,
+    /// Production mode: feeder mutations must be executed by this contract
+    /// itself, normally through a passed governance proposal self-call.
+    Governance,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -222,11 +236,11 @@ const TOTAL_BONDED_UPDATED_AT: Item<Timestamp> = Item::new("total_bonded_updated
 /// Used as the reference point for rate-limiting: each new activation can
 /// only accept a value within ±max_delta_bps of this anchor. The anchor
 /// moves only at activation — not at every UpdateTotalBonded call — so
-/// rapid-fire admin updates cannot accumulate unbounded drift.
+/// rapid-fire oracle updates cannot accumulate unbounded drift.
 const TOTAL_BONDED_ANCHOR: Item<Uint128> = Item::new("total_bonded_anchor");
 /// Timestamp of the last proposal activation.
 /// Used to enforce `min_activation_gap` — the minimum time between successive
-/// activations. This rate-limits how fast the admin can walk the anchor via
+/// activations. This rate-limits how fast governance can walk the anchor via
 /// repeated bounded-step updates across multiple proposal activations.
 const LAST_ACTIVATION_TIME: Item<Timestamp> = Item::new("last_activation_time");
 /// Per-proposal stake snapshots: (proposal_id, voter) → delegated stake.
@@ -247,14 +261,14 @@ pub struct FeederSubmission {
     pub submitted_at: Timestamp,
     /// The oracle epoch at which this submission was made. Only submissions
     /// from the current epoch participate in consensus. Epoch increments on
-    /// every feeder removal, forcing a full re-consensus from the new set.
+    /// every feeder membership change, forcing a full re-consensus.
     pub epoch: u64,
 }
 const FEEDER_SUBMISSIONS: Map<&Addr, FeederSubmission> = Map::new("feeder_submissions");
 
 /// Timestamp of the last feeder add/remove operation.
 /// Used to enforce `feeder_mutation_cooldown` — rate-limits how fast
-/// the admin can reshape the oracle cohort.
+/// the oracle cohort can be reshaped.
 const LAST_FEEDER_MUTATION_TIME: Item<Timestamp> = Item::new("last_feeder_mutation_time");
 
 /// Per-feeder registration timestamp. Used to enforce a quarantine period:
@@ -262,11 +276,10 @@ const LAST_FEEDER_MUTATION_TIME: Item<Timestamp> = Item::new("last_feeder_mutati
 /// `feeder_quarantine_period` has elapsed since registration.
 const FEEDER_REGISTERED_AT: Map<&Addr, Timestamp> = Map::new("feeder_registered_at");
 
-/// Oracle epoch counter. Incremented on every feeder removal. Submissions
-/// carry the epoch at which they were made, and `check_oracle_consensus`
-/// only considers submissions from the current epoch. This forces a full
-/// re-consensus from the post-mutation feeder set whenever a feeder is
-/// removed, preventing the admin from steering by pruning dissenters.
+/// Oracle epoch counter. Incremented on every feeder membership change.
+/// Submissions carry the epoch at which they were made, and
+/// `check_oracle_consensus` only considers submissions from the current epoch.
+/// This forces a full re-consensus from the post-mutation feeder set.
 const ORACLE_EPOCH: Item<u64> = Item::new("oracle_epoch");
 
 /// Response for the OracleStatus query.
@@ -313,6 +326,11 @@ pub struct InstantiateMsg {
     pub feeder_mutation_cooldown: u64,
     /// Quarantine period (seconds) before a newly added feeder's submissions count.
     pub feeder_quarantine_period: u64,
+    /// Initial feeder set. If empty, the instantiator is registered as the
+    /// sole bootstrap feeder.
+    pub initial_feeders: Vec<String>,
+    /// Feeder mutation authority. Production manifests must use `governance`.
+    pub feeder_mutation_authority: FeederMutationAuthority,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -351,12 +369,14 @@ pub enum ExecuteMsg {
     /// with an explicit, auditable admin action. Fails if the anchor has
     /// already been seeded (non-zero).
     SeedAnchor {},
-    /// Admin-only: register a new oracle feeder. Multiple independent feeders
-    /// distribute the trust assumption for the total_bonded oracle.
+    /// Register a new oracle feeder. Authorization depends on
+    /// `feeder_mutation_authority`: admin in bootstrap mode, contract self-call
+    /// in governance mode.
     AddFeeder {
         address: String,
     },
-    /// Admin-only: remove an oracle feeder.
+    /// Remove an oracle feeder. Authorization depends on
+    /// `feeder_mutation_authority`.
     RemoveFeeder {
         address: String,
     },
@@ -394,6 +414,7 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     validate_instantiate_msg(&msg)?;
+    let initial_feeders = validate_initial_feeders(deps.api, &info.sender, &msg)?;
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     let config = Config {
@@ -413,13 +434,14 @@ pub fn instantiate(
         feeder_tolerance_bps: msg.feeder_tolerance_bps,
         feeder_mutation_cooldown: msg.feeder_mutation_cooldown,
         feeder_quarantine_period: msg.feeder_quarantine_period,
+        feeder_mutation_authority: msg.feeder_mutation_authority,
     };
 
     CONFIG.save(deps.storage, &config)?;
     PROPOSAL_COUNT.save(deps.storage, &0)?;
     TOTAL_BONDED.save(deps.storage, &Uint128::zero())?;
     // Initialize to epoch zero so the first activation will always require
-    // the admin to call UpdateTotalBonded at least once.
+    // feeders to reach UpdateTotalBonded consensus at least once.
     TOTAL_BONDED_UPDATED_AT.save(deps.storage, &Timestamp::from_seconds(0))?;
     // Initialize anchor to zero. Admin must call SeedAnchor to set the
     // initial value before any proposal can activate. This ensures the
@@ -431,10 +453,13 @@ pub fn instantiate(
     LAST_ACTIVATION_TIME.save(deps.storage, &Timestamp::from_seconds(0))?;
     // Initialize to epoch zero so the first feeder mutation is not blocked.
     LAST_FEEDER_MUTATION_TIME.save(deps.storage, &Timestamp::from_seconds(0))?;
-    // Register the admin as the first oracle feeder with epoch-zero
-    // registration (no quarantine — admin is immediately active).
-    FEEDERS.save(deps.storage, &vec![info.sender.clone()])?;
-    FEEDER_REGISTERED_AT.save(deps.storage, &info.sender, &Timestamp::from_seconds(0))?;
+    // Initial feeders are trusted bootstrap inputs and are active from epoch 0
+    // without quarantine. Later additions follow the configured authority,
+    // cooldown, quarantine, and epoch invalidation rules.
+    FEEDERS.save(deps.storage, &initial_feeders)?;
+    for feeder in &initial_feeders {
+        FEEDER_REGISTERED_AT.save(deps.storage, feeder, &Timestamp::from_seconds(0))?;
+    }
     ORACLE_EPOCH.save(deps.storage, &0u64)?;
 
     Ok(Response::new().add_attribute("action", "instantiate"))
@@ -486,8 +511,52 @@ fn validate_instantiate_msg(msg: &InstantiateMsg) -> Result<(), ContractError> {
             reason: "feeder_tolerance_bps cannot exceed 10000 basis points".to_string(),
         });
     }
+    let initial_feeder_count = if msg.initial_feeders.is_empty() {
+        1
+    } else {
+        msg.initial_feeders.len()
+    };
+    if initial_feeder_count > MAX_FEEDERS {
+        return Err(ContractError::InvalidConfig {
+            reason: "initial_feeders exceeds max feeder capacity".to_string(),
+        });
+    }
+    if msg.feeder_mutation_authority == FeederMutationAuthority::Governance
+        && initial_feeder_count < msg.min_feeder_quorum as usize
+    {
+        return Err(ContractError::InvalidConfig {
+            reason:
+                "governance-managed feeders require initial_feeders to satisfy min_feeder_quorum"
+                    .to_string(),
+        });
+    }
 
     Ok(())
+}
+
+fn validate_initial_feeders(
+    api: &dyn cosmwasm_std::Api,
+    admin: &Addr,
+    msg: &InstantiateMsg,
+) -> Result<Vec<Addr>, ContractError> {
+    let raw_feeders = if msg.initial_feeders.is_empty() {
+        vec![admin.to_string()]
+    } else {
+        msg.initial_feeders.clone()
+    };
+
+    let mut feeders: Vec<Addr> = Vec::with_capacity(raw_feeders.len());
+    for raw in raw_feeders {
+        let feeder = api.addr_validate(&raw)?;
+        if feeders.contains(&feeder) {
+            return Err(ContractError::InvalidConfig {
+                reason: format!("duplicate initial feeder: {feeder}"),
+            });
+        }
+        feeders.push(feeder);
+    }
+
+    Ok(feeders)
 }
 
 #[entry_point]
@@ -603,11 +672,10 @@ fn execute_deposit(
 
     // Activate if min deposit reached
     if proposal.deposit >= config.min_deposit && proposal.status == ProposalStatus::Pending {
-        // ── P2 fix: enforce freshness of the admin-supplied total_bonded ──
-        // The admin can still pre-position the value, but it must have been
-        // refreshed within `max_staleness` seconds of activation. This shrinks
-        // the manipulation window from "any time before activation" to a narrow
-        // band the community can audit.
+        // ── P2 fix: enforce freshness of the feeder-consensus total_bonded ──
+        // The oracle value must have been refreshed within `max_staleness`
+        // seconds of activation. This shrinks the stale-denominator window from
+        // "any time before activation" to a narrow band the community can audit.
         let updated_at = TOTAL_BONDED_UPDATED_AT.load(deps.storage)?;
         if env
             .block
@@ -631,7 +699,7 @@ fn execute_deposit(
 
         // ── Activation cooldown ──
         // Enforce a minimum time gap between successive proposal activations.
-        // This prevents the admin from walking the anchor in rapid bounded
+        // This prevents governance from walking the anchor in rapid bounded
         // steps across back-to-back proposals — each step is bounded by
         // max_delta_bps, and each step requires min_activation_gap to elapse.
         let last_activation = LAST_ACTIVATION_TIME.load(deps.storage)?;
@@ -647,7 +715,7 @@ fn execute_deposit(
         }
 
         // ── Anchor-relative rate limit ──
-        // Prevent the admin from making a large jump (up or down) in the
+        // Prevent the oracle from making a large jump (up or down) in the
         // quorum denominator between proposal activations. The anchor is the
         // value accepted at the *previous* activation; the current value must
         // be within ±max_delta_bps of that anchor.
@@ -701,8 +769,8 @@ fn execute_update_total_bonded(
     let config = CONFIG.load(deps.storage)?;
 
     // ── Multi-feeder authorization ──
-    // Any registered feeder can submit — not just the admin. This distributes
-    // the trust assumption from a single party to N independent oracle feeders.
+    // Any registered feeder can submit. This distributes the trust assumption
+    // from a single party to N independent oracle feeders.
     let feeders = FEEDERS.load(deps.storage)?;
     if !feeders.contains(&info.sender) {
         return Err(ContractError::NotAFeeder {});
@@ -759,13 +827,12 @@ fn execute_update_total_bonded(
 ///
 /// **Quarantine**: feeders whose registration is more recent than
 /// `feeder_quarantine_period` are excluded from consensus. This prevents
-/// the admin from adding aligned feeders for immediate influence.
+/// aligned feeders from being added for immediate influence.
 ///
 /// **Epoch filtering**: only submissions from the current `ORACLE_EPOCH`
-/// participate in consensus. When a feeder is removed, the epoch increments,
-/// invalidating ALL pre-removal submissions. The entire current feeder set
-/// must re-submit, preventing the admin from steering by pruning a dissenter
-/// and resubmitting an aligned value.
+/// participate in consensus. When feeder membership changes, the epoch
+/// increments and invalidates prior submissions. The current feeder set must
+/// re-submit before canonical state can move again.
 fn check_oracle_consensus(
     storage: &dyn cosmwasm_std::Storage,
     env: &Env,
@@ -909,8 +976,28 @@ fn execute_seed_anchor(
         .add_attribute("anchor", current_bonded))
 }
 
-/// Admin-only: register a new oracle feeder.
-/// Enforces mutation cooldown and records quarantine timestamp.
+fn ensure_feeder_mutation_authorized(
+    config: &Config,
+    env: &Env,
+    info: &MessageInfo,
+) -> Result<(), ContractError> {
+    match config.feeder_mutation_authority {
+        FeederMutationAuthority::Admin => {
+            if info.sender != config.admin {
+                return Err(ContractError::Unauthorized {});
+            }
+        }
+        FeederMutationAuthority::Governance => {
+            if info.sender != env.contract.address {
+                return Err(ContractError::Unauthorized {});
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Register a new oracle feeder.
+/// Enforces configured authority, mutation cooldown, and quarantine timestamp.
 fn execute_add_feeder(
     deps: DepsMut,
     env: Env,
@@ -918,9 +1005,7 @@ fn execute_add_feeder(
     address: String,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
-    if info.sender != config.admin {
-        return Err(ContractError::Unauthorized {});
-    }
+    ensure_feeder_mutation_authorized(&config, &env, &info)?;
 
     // Enforce mutation cooldown — prevent rapid feeder set reshaping
     let last_mutation = LAST_FEEDER_MUTATION_TIME.load(deps.storage)?;
@@ -962,8 +1047,8 @@ fn execute_add_feeder(
         .add_attribute("total_feeders", feeders.len().to_string()))
 }
 
-/// Admin-only: remove an oracle feeder.
-/// Enforces mutation cooldown and minimum feeder floor.
+/// Remove an oracle feeder.
+/// Enforces configured authority, mutation cooldown, and minimum feeder floor.
 fn execute_remove_feeder(
     deps: DepsMut,
     env: Env,
@@ -971,9 +1056,7 @@ fn execute_remove_feeder(
     address: String,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
-    if info.sender != config.admin {
-        return Err(ContractError::Unauthorized {});
-    }
+    ensure_feeder_mutation_authorized(&config, &env, &info)?;
 
     // Enforce mutation cooldown — prevent rapid feeder set reshaping
     let last_mutation = LAST_FEEDER_MUTATION_TIME.load(deps.storage)?;
@@ -1175,7 +1258,7 @@ fn execute_execute_proposal(
         + proposal.votes_no_with_veto;
 
     // Enforce quorum against the total_bonded snapshot taken at proposal activation,
-    // NOT the live TOTAL_BONDED value. This prevents the admin from steering quorum
+    // NOT the live TOTAL_BONDED value. This prevents quorum from being steered
     // by rewriting total_bonded after voting has already begun.
     let snapshot_bonded = proposal.snapshot_total_bonded;
     if snapshot_bonded.is_zero() {
@@ -1185,11 +1268,11 @@ fn execute_execute_proposal(
 
     // ── On-chain consistency bound ──
     // The sum of all voter-snapshotted weights can never legitimately exceed
-    // the total bonded tokens on the network. If it does, the admin understated
-    // the denominator — making quorum artificially easy to reach. This check
+    // the total bonded tokens on the network. If it does, the oracle understated
+    // the denominator, making quorum artificially easy to reach. This check
     // catches the *dangerous* direction of manipulation (lowering the bar).
     //
-    // The admin can still *overstate* total_bonded, which makes quorum harder
+    // The oracle can still *overstate* total_bonded, which makes quorum harder
     // to reach and could block proposals — but that is a liveness issue, not a
     // safety issue, and is detectable off-chain via standard staking queries.
     if total_votes > snapshot_bonded {
@@ -1399,6 +1482,8 @@ mod tests {
             feeder_tolerance_bps: 500,   // 5% tolerance between feeders
             feeder_mutation_cooldown: 0, // no cooldown for single-feeder tests
             feeder_quarantine_period: 0, // no quarantine for single-feeder tests
+            initial_feeders: vec![],     // empty means instantiator-only bootstrap set
+            feeder_mutation_authority: FeederMutationAuthority::Admin,
         }
     }
 
@@ -1431,6 +1516,32 @@ mod tests {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
             feeder_tolerance_bps: BASIS_POINTS_DENOMINATOR + 1,
+            ..default_init_msg()
+        };
+
+        let err = instantiate(deps.as_mut(), mock_env(), mock_info(ADMIN, &[]), msg).unwrap_err();
+        assert!(matches!(err, ContractError::InvalidConfig { .. }));
+    }
+
+    #[test]
+    fn test_governance_managed_feeders_require_initial_quorum() {
+        let mut deps = mock_dependencies();
+        let msg = InstantiateMsg {
+            min_feeder_quorum: 3,
+            feeder_mutation_authority: FeederMutationAuthority::Governance,
+            initial_feeders: vec![ADMIN.to_string(), "feeder_1".to_string()],
+            ..default_init_msg()
+        };
+
+        let err = instantiate(deps.as_mut(), mock_env(), mock_info(ADMIN, &[]), msg).unwrap_err();
+        assert!(matches!(err, ContractError::InvalidConfig { .. }));
+    }
+
+    #[test]
+    fn test_instantiate_rejects_duplicate_initial_feeders() {
+        let mut deps = mock_dependencies();
+        let msg = InstantiateMsg {
+            initial_feeders: vec![ADMIN.to_string(), ADMIN.to_string()],
             ..default_init_msg()
         };
 
@@ -2628,6 +2739,86 @@ mod tests {
             )
             .unwrap();
         }
+    }
+
+    fn setup_governance_managed_feeder_contract(
+        deps: &mut cosmwasm_std::OwnedDeps<
+            cosmwasm_std::MemoryStorage,
+            cosmwasm_std::testing::MockApi,
+            cosmwasm_std::testing::MockQuerier,
+        >,
+    ) -> Env {
+        let env = mock_env();
+        let msg = InstantiateMsg {
+            min_feeder_quorum: 3,
+            feeder_tolerance_bps: 500,
+            initial_feeders: vec![
+                ADMIN.to_string(),
+                FEEDER_1.to_string(),
+                FEEDER_2.to_string(),
+            ],
+            feeder_mutation_authority: FeederMutationAuthority::Governance,
+            ..default_init_msg()
+        };
+        instantiate(deps.as_mut(), env.clone(), mock_info(ADMIN, &[]), msg).unwrap();
+        env
+    }
+
+    #[test]
+    fn test_governance_mode_blocks_direct_admin_feeder_mutation() {
+        let mut deps = mock_dependencies();
+        let env = setup_governance_managed_feeder_contract(&mut deps);
+
+        let err = execute(
+            deps.as_mut(),
+            env,
+            mock_info(ADMIN, &[]),
+            ExecuteMsg::AddFeeder {
+                address: FEEDER_3.to_string(),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(err, ContractError::Unauthorized {});
+    }
+
+    #[test]
+    fn test_governance_mode_allows_contract_self_feeder_mutation() {
+        let mut deps = mock_dependencies();
+        let env = setup_governance_managed_feeder_contract(&mut deps);
+        let contract = env.contract.address.to_string();
+
+        let epoch_before_add = ORACLE_EPOCH.load(deps.as_ref().storage).unwrap();
+        let res = execute(
+            deps.as_mut(),
+            env.clone(),
+            mock_info(&contract, &[]),
+            ExecuteMsg::AddFeeder {
+                address: FEEDER_3.to_string(),
+            },
+        )
+        .unwrap();
+        assert_eq!(res.attributes[0].value, "add_feeder");
+        assert_eq!(
+            ORACLE_EPOCH.load(deps.as_ref().storage).unwrap(),
+            epoch_before_add + 1
+        );
+        assert_eq!(FEEDERS.load(deps.as_ref().storage).unwrap().len(), 4);
+
+        let epoch_before_remove = ORACLE_EPOCH.load(deps.as_ref().storage).unwrap();
+        execute(
+            deps.as_mut(),
+            env,
+            mock_info(&contract, &[]),
+            ExecuteMsg::RemoveFeeder {
+                address: FEEDER_3.to_string(),
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            ORACLE_EPOCH.load(deps.as_ref().storage).unwrap(),
+            epoch_before_remove + 1
+        );
+        assert_eq!(FEEDERS.load(deps.as_ref().storage).unwrap().len(), 3);
     }
 
     // ── Test: non-feeder cannot submit total_bonded ──────────────────────

@@ -26,6 +26,7 @@ SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 TX_RE = re.compile(r"^[0-9A-Fa-f]{64}$")
 BASIS_POINTS_DENOMINATOR = 10_000
 MAX_GOVERNANCE_FEEDERS = 50
+PRODUCTION_FEEDER_MUTATION_AUTHORITY = "governance"
 
 
 def fail(message: str) -> None:
@@ -90,6 +91,16 @@ def validate_governance_contract(
 
     for key in ("quorum_bps", "threshold_bps", "veto_threshold_bps", "feeder_tolerance_bps"):
         validate_basis_points(config.get(key), f"{contract_path}.config.{key}", allow_zero=False)
+
+    authority = require_string(
+        config.get("feeder_mutation_authority"),
+        f"{contract_path}.config.feeder_mutation_authority",
+    )
+    if authority != PRODUCTION_FEEDER_MUTATION_AUTHORITY:
+        fail(
+            f"{contract_path}.config.feeder_mutation_authority must be "
+            f"{PRODUCTION_FEEDER_MUTATION_AUTHORITY}"
+        )
 
     min_feeder_quorum = require_int(
         config.get("min_feeder_quorum"),

@@ -158,6 +158,7 @@
         "quorum_bps": 3340,
         "threshold_bps": 5000,
         "veto_threshold_bps": 3340,
+        "feeder_mutation_authority": "governance",
         "min_feeder_quorum": 3,
         "feeder_tolerance_bps": 500,
         "feeder_mutation_cooldown_seconds": 86400,
