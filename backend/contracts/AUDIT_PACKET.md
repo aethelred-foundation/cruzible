@@ -74,6 +74,9 @@ checksums and manifest.
   canonical job state.
 - Model registry job-count updates depend on the configured AI job manager
   address after deployment.
+- The model registry is instantiated before the AI job manager address is
+  known, so the staging manifest must record the post-instantiate
+  `UpdateConfig` transaction that sets the final AI job manager role.
 - Contract instantiation, migration, and address wiring must be recorded in a
   release manifest before any production deployment.
 
@@ -100,6 +103,8 @@ Before production readiness can be claimed, run a staging drill that covers:
 - Stake, compound, unstake, approve, burn, unbond, and claim flows.
 - Submit, assign, complete, verify, pay, and seal an AI job.
 - Register a model and increment job counts through the authorized job manager.
+- Record and verify the model registry post-instantiate `UpdateConfig` action
+  that authorizes the deployed AI job manager.
 - Activate a governance proposal with feeder-backed total-bonded snapshots.
 - Pause and unpause emergency flows using production-like role separation.
 - Export event logs, checksums, code IDs, and contract addresses into the

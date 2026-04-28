@@ -195,6 +195,60 @@ def validate_contract_wiring(contracts: dict[str, dict[str, Any]]) -> None:
         fail(f"{seal_manager_path}.config.min_validators cannot exceed max_validators")
 
 
+def validate_post_instantiate_actions(root: dict[str, Any], contracts: dict[str, dict[str, Any]]) -> None:
+    actions = require_list(root.get("post_instantiate_actions"), "$.post_instantiate_actions")
+    model_registry = contracts["model_registry"]
+    ai_jobs = contracts["ai_job_manager"]
+
+    model_registry_action = None
+    for index, raw_action in enumerate(actions):
+        action = require_mapping(raw_action, f"$.post_instantiate_actions[{index}]")
+        name = require_string(action.get("name"), f"$.post_instantiate_actions[{index}].name")
+        contract = require_string(action.get("contract"), f"$.post_instantiate_actions[{index}].contract")
+        tx_hash = require_string(action.get("tx_hash"), f"$.post_instantiate_actions[{index}].tx_hash")
+        if not TX_RE.fullmatch(tx_hash):
+            fail(f"$.post_instantiate_actions[{index}].tx_hash must be 64 hex characters")
+        require_string(action.get("actor"), f"$.post_instantiate_actions[{index}].actor")
+        require_mapping(action.get("message"), f"$.post_instantiate_actions[{index}].message")
+
+        if name == "model_registry_set_ai_job_manager":
+            if model_registry_action is not None:
+                fail("$.post_instantiate_actions contains duplicate model_registry_set_ai_job_manager")
+            if contract != "model_registry":
+                fail("model_registry_set_ai_job_manager must target model_registry")
+            model_registry_action = (index, action)
+
+    if model_registry_action is None:
+        fail("$.post_instantiate_actions must include model_registry_set_ai_job_manager")
+
+    index, action = model_registry_action
+    if require_string(
+        action.get("contract_address"),
+        f"$.post_instantiate_actions[{index}].contract_address",
+    ) != model_registry["address"]:
+        fail("model_registry_set_ai_job_manager contract_address must match model_registry address")
+    if action["actor"] != model_registry["admin"]:
+        fail("model_registry_set_ai_job_manager actor must match model_registry admin")
+
+    message = require_mapping(action.get("message"), f"$.post_instantiate_actions[{index}].message")
+    update_config = require_mapping(
+        message.get("update_config"),
+        f"$.post_instantiate_actions[{index}].message.update_config",
+    )
+    if require_string(
+        update_config.get("ai_job_manager"),
+        f"$.post_instantiate_actions[{index}].message.update_config.ai_job_manager",
+    ) != ai_jobs["address"]:
+        fail("model_registry_set_ai_job_manager message must set ai_job_manager address")
+
+    registration_fee = update_config.get("registration_fee")
+    if registration_fee is not None:
+        require_numeric_string(
+            registration_fee,
+            f"$.post_instantiate_actions[{index}].message.update_config.registration_fee",
+        )
+
+
 def read_json_file(path: Path, label: str) -> dict[str, Any]:
     try:
         return require_mapping(json.loads(path.read_text(encoding="utf-8")), label)
@@ -246,6 +300,12 @@ def validate_strict_release_evidence(root: dict[str, Any]) -> None:
             value = require_string(artifact_obj.get(key), f"$.artifacts[{index}].{key}")
             if len(set(value.lower())) == 1:
                 fail(f"$.artifacts[{index}].{key} appears to be placeholder evidence")
+
+    for index, action in enumerate(require_list(root.get("post_instantiate_actions"), "$.post_instantiate_actions")):
+        action_obj = require_mapping(action, f"$.post_instantiate_actions[{index}]")
+        tx_hash = require_string(action_obj.get("tx_hash"), f"$.post_instantiate_actions[{index}].tx_hash")
+        if len(set(tx_hash.lower())) == 1:
+            fail(f"$.post_instantiate_actions[{index}].tx_hash appears to be placeholder evidence")
 
     signoff = require_mapping(root.get("operator_signoff"), "$.operator_signoff")
     prepared_at = require_string(signoff.get("prepared_at"), "$.operator_signoff.prepared_at")
@@ -433,6 +493,7 @@ def validate_manifest(path: Path, *, strict: bool = False, artifact_dir: Path | 
         fail(f"missing contracts: {', '.join(sorted(missing_contracts))}")
 
     validate_contract_wiring(contract_by_name)
+    validate_post_instantiate_actions(root, contract_by_name)
     if strict:
         validate_strict_release_evidence(root)
     if artifact_dir is not None:

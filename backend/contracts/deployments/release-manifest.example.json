@@ -169,6 +169,21 @@
       }
     }
   ],
+  "post_instantiate_actions": [
+    {
+      "name": "model_registry_set_ai_job_manager",
+      "contract": "model_registry",
+      "contract_address": "aethel1models00000000000000000000000000000000",
+      "actor": "aethel1admin00000000000000000000000000000000000",
+      "tx_hash": "7777777777777777777777777777777777777777777777777777777777777777",
+      "message": {
+        "update_config": {
+          "registration_fee": null,
+          "ai_job_manager": "aethel1aijobs000000000000000000000000000000000"
+        }
+      }
+    }
+  ],
   "operator_signoff": {
     "prepared_by": "Ramesh Tamilselvan",
     "prepared_at": "2026-04-27T00:00:00Z",

@@ -53,6 +53,8 @@ class ReleaseManifestValidationTests(unittest.TestCase):
 
         for index, artifact in enumerate(manifest["artifacts"], start=1):
             artifact["upload_tx_hash"] = f"{index:064x}"
+        for index, action in enumerate(manifest["post_instantiate_actions"], start=10):
+            action["tx_hash"] = f"{index:064x}"
         return manifest
 
     def write_artifact_dir(self, directory: Path, manifest: dict) -> Path:
@@ -131,6 +133,23 @@ class ReleaseManifestValidationTests(unittest.TestCase):
             manifest = self.load_example()
             vault = next(contract for contract in manifest["contracts"] if contract["name"] == "vault")
             vault["config"]["staking_token"] = "aethel1wrongstakingtoken000000000000000000000000"
+            manifest_path = self.write_manifest(Path(temp_dir), manifest)
+
+            self.assert_manifest_fails(manifest_path)
+
+    def test_post_instantiate_action_required_for_model_registry_role(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manifest = self.load_example()
+            manifest["post_instantiate_actions"] = []
+            manifest_path = self.write_manifest(Path(temp_dir), manifest)
+
+            self.assert_manifest_fails(manifest_path)
+
+    def test_post_instantiate_action_must_set_ai_job_manager(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manifest = self.load_example()
+            action = manifest["post_instantiate_actions"][0]
+            action["message"]["update_config"]["ai_job_manager"] = "aethel1wrongjobs00000000000000000000000000000000"
             manifest_path = self.write_manifest(Path(temp_dir), manifest)
 
             self.assert_manifest_fails(manifest_path)
