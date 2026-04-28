@@ -44,6 +44,7 @@ type StoredRefreshSession = {
   userAgentHash?: string | null;
   ipHash?: string | null;
   expiresAt: Date;
+  createdAt?: Date | null;
   rotatedAt?: Date | null;
   revokedAt?: Date | null;
 };
@@ -64,6 +65,25 @@ export interface LoginChallenge {
   nonce: string;
   message: string;
   expiresAt: string;
+}
+
+export interface RefreshSessionSummary {
+  sessionId: string;
+  parentSessionId: string | null;
+  address: string;
+  roles: string[];
+  status: 'active' | 'expired' | 'revoked' | 'rotated';
+  expiresAt: string;
+  createdAt: string | null;
+  rotatedAt: string | null;
+  revokedAt: string | null;
+  hasUserAgentBinding: boolean;
+  hasIpBinding: boolean;
+}
+
+export interface RefreshSessionRevokeAuditContext {
+  actorAddress: string;
+  requestId?: string;
 }
 
 interface RefreshTokenPayload {
@@ -305,6 +325,41 @@ export async function isTokenRevoked(token: string): Promise<boolean> {
   return !session || Boolean(session.revokedAt || session.rotatedAt);
 }
 
+export async function listRefreshSessionsForAddress(
+  address: string,
+): Promise<{ address: string; sessions: RefreshSessionSummary[] }> {
+  const normalizedAddress = normalizeAddress(address);
+  const sessions = await findRefreshSessionsForAddress(normalizedAddress);
+  const now = new Date();
+
+  return {
+    address: normalizedAddress,
+    sessions: sessions.map((session) => summarizeRefreshSession(session, now)),
+  };
+}
+
+export async function revokeRefreshSessionsForAddress(
+  address: string,
+  auditContext?: RefreshSessionRevokeAuditContext,
+): Promise<{ address: string; revokedCount: number }> {
+  const normalizedAddress = normalizeAddress(address);
+  const revokedCount = await revokeActiveRefreshSessionsForAddress(
+    normalizedAddress,
+  );
+
+  logger.info('Refresh sessions revoked for address', {
+    address: normalizedAddress,
+    actorAddress: auditContext?.actorAddress,
+    requestId: auditContext?.requestId,
+    revokedCount,
+  });
+
+  return {
+    address: normalizedAddress,
+    revokedCount,
+  };
+}
+
 function resolveRolesForAddress(address: string): string[] {
   const normalizedAddress = normalizeAddress(address);
   const roles = new Set<string>(['user']);
@@ -408,8 +463,44 @@ function buildTokenSession(
       userAgentHash: context.userAgent ? hashSecret(context.userAgent) : null,
       ipHash: context.ip ? hashSecret(context.ip) : null,
       expiresAt: verifiedRefreshToken.expiresAt,
+      createdAt: new Date(),
     },
   };
+}
+
+function summarizeRefreshSession(
+  session: StoredRefreshSession,
+  now: Date,
+): RefreshSessionSummary {
+  return {
+    sessionId: session.id,
+    parentSessionId: session.parentSessionId ?? null,
+    address: session.address,
+    roles: session.roles,
+    status: getRefreshSessionStatus(session, now),
+    expiresAt: session.expiresAt.toISOString(),
+    createdAt: session.createdAt?.toISOString() ?? null,
+    rotatedAt: session.rotatedAt?.toISOString() ?? null,
+    revokedAt: session.revokedAt?.toISOString() ?? null,
+    hasUserAgentBinding: Boolean(session.userAgentHash),
+    hasIpBinding: Boolean(session.ipHash),
+  };
+}
+
+function getRefreshSessionStatus(
+  session: StoredRefreshSession,
+  now: Date,
+): RefreshSessionSummary['status'] {
+  if (session.revokedAt) {
+    return 'revoked';
+  }
+  if (session.rotatedAt) {
+    return 'rotated';
+  }
+  if (session.expiresAt <= now) {
+    return 'expired';
+  }
+  return 'active';
 }
 
 function hasRefreshSessionContextMismatch(
@@ -551,6 +642,26 @@ async function findRefreshSession(tokenHash: string): Promise<StoredRefreshSessi
   });
 }
 
+async function findRefreshSessionsForAddress(
+  address: string,
+): Promise<StoredRefreshSession[]> {
+  if (!authPrisma) {
+    return [...memoryRefreshSessions.values()]
+      .filter((session) => session.address === address)
+      .sort((a, b) => {
+        const bCreated = b.createdAt?.getTime() ?? 0;
+        const aCreated = a.createdAt?.getTime() ?? 0;
+        return bCreated - aCreated;
+      });
+  }
+
+  return authPrisma.authRefreshSession.findMany({
+    where: { address },
+    orderBy: { createdAt: 'desc' },
+    take: 100,
+  });
+}
+
 async function rotateRefreshSession(
   tokenHash: string,
   nextSession: StoredRefreshSession,
@@ -662,6 +773,35 @@ async function revokeRefreshSession(
       revokedAt: now,
     };
   });
+}
+
+async function revokeActiveRefreshSessionsForAddress(
+  address: string,
+): Promise<number> {
+  const now = new Date();
+
+  if (!authPrisma) {
+    let revokedCount = 0;
+    for (const session of memoryRefreshSessions.values()) {
+      if (session.address === address && isRefreshSessionUsable(session, now)) {
+        session.revokedAt = now;
+        revokedCount += 1;
+      }
+    }
+    return revokedCount;
+  }
+
+  const result = await authPrisma.authRefreshSession.updateMany({
+    where: {
+      address,
+      revokedAt: null,
+      rotatedAt: null,
+      expiresAt: { gt: now },
+    },
+    data: { revokedAt: now },
+  });
+
+  return result.count;
 }
 
 function isRefreshSessionUsable(

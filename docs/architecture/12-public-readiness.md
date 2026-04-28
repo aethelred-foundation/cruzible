@@ -43,7 +43,7 @@ This document is not a launch promise. It is a snapshot-aligned record of:
 | API observability                  | Partial    | Health/readiness/docs are implemented, Prometheus-compatible `/metrics` is exposed, alert history is database-backed when `DATABASE_URL` is configured, and API cache uses Redis when `REDIS_URL` is configured                    |
 | Deployment scaffolding             | Partial    | Compose now builds API and indexer targets from the repository root; referenced config directories still need to be supplied and staged                                                                                            |
 | Kubernetes readiness               | Partial    | Frontend, API gateway, and indexer manifests are checked in with fail-closed config/secret requirements; staging validation is still required                                                                                      |
-| Admin/ops authentication bootstrap | Partial    | Wallet-backed nonce login, refresh rotation, logout revocation, and role-gated ops routes exist; production startup now requires at least one configured operator/admin wallet and deployments must apply the auth-state migration |
+| Admin/ops authentication bootstrap | Partial    | Wallet-backed nonce login, context-bound refresh rotation, logout revocation, refresh-session incident endpoints, and role-gated ops routes exist; production startup now requires at least one configured operator/admin wallet and deployments must apply the auth-state migration |
 | Data persistence model             | Partial    | Prisma-backed database state exists for auth, reconciliation, indexer, and alert events; Redis-backed cache is required for production                                                                                             |
 | Migration workflow                 | Partial    | Development and production Prisma migration scripts exist; rollback still depends on operator-managed database snapshots                                                                                                           |
 
@@ -53,7 +53,7 @@ This document is not a launch promise. It is a snapshot-aligned record of:
 - Capture a contract staging release manifest with wasm checksums, code IDs, contract addresses, and role owners.
 - Stage-test `k8s/base/` with real `cruzible-api-config` values and a provisioned `cruzible-api-secrets` Secret.
 - Configure `NEXT_PUBLIC_API_URL` for the selected `NEXT_PUBLIC_CHAIN_ENV`; frontend public-data requests now fail closed when the API URL is missing or obviously points at the wrong network.
-- Exercise the `/v1/auth` nonce/login/refresh/logout workflow in staging and provision validated operator/admin address lists for protected routes such as `/v1/alerts` and `/v1/reconciliation/status`.
+- Exercise the `/v1/auth` nonce/login/refresh/logout and session revocation workflow in staging, then provision validated operator/admin address lists for protected routes such as `/v1/alerts` and `/v1/reconciliation/status`.
 - Exercise `npm run db:migrate:deploy` in staging and pair it with tested database snapshot/restore procedures.
 - Track the temporary Next.js dependency exception in `docs/security/dependency-exceptions.md` until upstream stops bundling `postcss < 8.5.10`.
 

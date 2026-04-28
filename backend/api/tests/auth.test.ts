@@ -301,6 +301,127 @@ describe('auth routes', () => {
     });
   });
 
+  it('lets operators list and revoke active wallet refresh sessions', async () => {
+    await withAuthRoutes(async (baseUrl) => {
+      const challenge = await (
+        await fetch(`${baseUrl}/v1/auth/nonce`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ address: 'aeth1operator' }),
+        })
+      ).json();
+      const loginTokens = await (
+        await fetch(`${baseUrl}/v1/auth/login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'CruzibleWallet/1.0',
+          },
+          body: JSON.stringify({
+            address: 'aeth1operator',
+            message: challenge.message,
+            signature: 'test-signature',
+          }),
+        })
+      ).json();
+
+      const listResponse = await fetch(
+        `${baseUrl}/v1/auth/sessions/aeth1operator`,
+        {
+          headers: { Authorization: `Bearer ${loginTokens.accessToken}` },
+        },
+      );
+      const listBody = await listResponse.json();
+      const serializedListBody = JSON.stringify(listBody);
+
+      const revokeResponse = await fetch(
+        `${baseUrl}/v1/auth/sessions/aeth1operator/revoke`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${loginTokens.accessToken}` },
+        },
+      );
+      const revokeBody = await revokeResponse.json();
+
+      const refreshAfterRevoke = await fetch(`${baseUrl}/v1/auth/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'CruzibleWallet/1.0',
+        },
+        body: JSON.stringify({ refresh_token: loginTokens.refreshToken }),
+      });
+
+      const listAfterRevokeResponse = await fetch(
+        `${baseUrl}/v1/auth/sessions/aeth1operator`,
+        {
+          headers: { Authorization: `Bearer ${loginTokens.accessToken}` },
+        },
+      );
+      const listAfterRevokeBody = await listAfterRevokeResponse.json();
+
+      expect(listResponse.status).toBe(200);
+      expect(listBody.address).toBe('aeth1operator');
+      expect(listBody.sessions).toHaveLength(1);
+      expect(listBody.sessions[0]).toMatchObject({
+        address: 'aeth1operator',
+        roles: ['user', 'operator'],
+        status: 'active',
+        hasUserAgentBinding: true,
+      });
+      expect(serializedListBody).not.toContain('tokenHash');
+      expect(serializedListBody).not.toContain('refreshToken');
+
+      expect(revokeResponse.status).toBe(200);
+      expect(revokeBody).toEqual({
+        address: 'aeth1operator',
+        revokedCount: 1,
+      });
+      expect(refreshAfterRevoke.status).toBe(401);
+      expect(listAfterRevokeBody.sessions[0].status).toBe('revoked');
+    });
+  });
+
+  it('rejects refresh-session incident endpoints for non-operators', async () => {
+    await withAuthRoutes(async (baseUrl) => {
+      const challenge = await (
+        await fetch(`${baseUrl}/v1/auth/nonce`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ address: 'aeth1user' }),
+        })
+      ).json();
+      const loginTokens = await (
+        await fetch(`${baseUrl}/v1/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            address: 'aeth1user',
+            message: challenge.message,
+            signature: 'test-signature',
+          }),
+        })
+      ).json();
+
+      const listResponse = await fetch(
+        `${baseUrl}/v1/auth/sessions/aeth1user`,
+        {
+          headers: { Authorization: `Bearer ${loginTokens.accessToken}` },
+        },
+      );
+      const revokeResponse = await fetch(
+        `${baseUrl}/v1/auth/sessions/aeth1user/revoke`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${loginTokens.accessToken}` },
+        },
+      );
+
+      expect(listResponse.status).toBe(403);
+      expect(revokeResponse.status).toBe(403);
+    });
+  });
+
   it('revokes refresh tokens on logout', async () => {
     await withAuthRoutes(async (baseUrl) => {
       const challenge = await (

@@ -6,16 +6,20 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import {
   createLoginChallenge,
+  listRefreshSessionsForAddress,
   refreshAccessToken,
   revokeRefreshToken,
+  revokeRefreshSessionsForAddress,
   verifyLoginAndIssueTokens,
 } from '../../auth/service';
+import { authenticate, requireRoles } from '../../auth/middleware';
 import {
+  AddressSchema,
   AuthNonceBodySchema,
   LoginBodySchema,
   RefreshTokenBodySchema,
 } from '../../validation/schemas';
-import { authRateLimiter } from '../../middleware/rateLimiter';
+import { authRateLimiter, opsRateLimiter } from '../../middleware/rateLimiter';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { ApiError } from '../../utils/ApiError';
 
@@ -110,6 +114,43 @@ router.post(
       throw new ApiError(401, 'Invalid refresh token');
     }
     res.status(204).send();
+  }),
+);
+
+const SessionAddressParamsSchema = z.object({
+  address: AddressSchema,
+});
+
+const requireOperatorAccess = [
+  opsRateLimiter,
+  authenticate,
+  requireRoles('operator', 'admin'),
+] as const;
+
+router.get(
+  '/sessions/:address',
+  ...requireOperatorAccess,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { address } = parseRequest(SessionAddressParamsSchema, req.params);
+    const sessions = await listRefreshSessionsForAddress(address);
+    res.json(sessions);
+  }),
+);
+
+router.post(
+  '/sessions/:address/revoke',
+  ...requireOperatorAccess,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { address } = parseRequest(SessionAddressParamsSchema, req.params);
+    if (!req.user) {
+      throw new ApiError(401, 'Authentication required');
+    }
+
+    const result = await revokeRefreshSessionsForAddress(address, {
+      actorAddress: req.user.address,
+      requestId: req.requestId,
+    });
+    res.json(result);
   }),
 );
 

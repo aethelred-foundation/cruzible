@@ -29,6 +29,9 @@ This runbook does not assume that every checked-in infrastructure artifact is tu
   already-issued access tokens remain valid until their configured short expiry.
 - Refresh-token rotation is bound to the login user-agent. IP context drift is
   logged for investigation but not rejected by default to avoid mobile/VPN lockouts.
+- Operators can inspect non-secret refresh-session metadata with
+  `GET /v1/auth/sessions/:address` and revoke active wallet sessions with
+  `POST /v1/auth/sessions/:address/revoke`.
 
 ## 3. Startup Paths
 
@@ -213,5 +216,7 @@ npm run db:migrate:deploy
 - Confirm JWT secrets and CORS settings are production-safe before any shared deployment.
 - Confirm auth role address lists are set and test `/v1/auth/nonce`,
   `/v1/auth/login`, `/v1/auth/refresh`, and `/v1/auth/logout`.
+- Confirm operator session incident response with `/v1/auth/sessions/:address`
+  and `/v1/auth/sessions/:address/revoke`.
 - Treat `backend/infra/docker-compose.yml` as a hardened baseline until the missing config assets are supplied and tested in staging.
 - Verify all externally referenced health probes and rollout steps against the deployed environment, not just the repo.

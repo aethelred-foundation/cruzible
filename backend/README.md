@@ -34,6 +34,8 @@ Additional route details are available from the checked-in Swagger annotations w
 
 - `GET /metrics`
 - `GET /docs`
+- `GET /v1/auth/sessions/:address`
+- `POST /v1/auth/sessions/:address/revoke`
 - `GET /v1/alerts`
 - `GET /v1/alerts/summary`
 - `GET /v1/reconciliation/status`
@@ -46,6 +48,8 @@ obtain tokens through the wallet-backed `/v1/auth` nonce/login flow. Configure
 at least one `AUTH_OPERATOR_ADDRESSES` or `AUTH_ADMIN_ADDRESSES` value before
 relying on protected ops routes; production startup fails closed when both are
 empty or malformed.
+Refresh-session incident endpoints expose non-secret metadata only and support
+bulk revocation of active refresh sessions for a wallet.
 
 ### Runtime characteristics
 
