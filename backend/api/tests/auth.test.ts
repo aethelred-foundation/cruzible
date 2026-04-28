@@ -253,6 +253,54 @@ describe('auth routes', () => {
     });
   });
 
+  it('rejects refresh rotation from a different user-agent context', async () => {
+    await withAuthRoutes(async (baseUrl) => {
+      const challenge = await (
+        await fetch(`${baseUrl}/v1/auth/nonce`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ address: 'aeth1operator' }),
+        })
+      ).json();
+      const loginTokens = await (
+        await fetch(`${baseUrl}/v1/auth/login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'CruzibleWallet/1.0',
+          },
+          body: JSON.stringify({
+            address: 'aeth1operator',
+            message: challenge.message,
+            signature: 'test-signature',
+          }),
+        })
+      ).json();
+
+      const mismatchedRefresh = await fetch(`${baseUrl}/v1/auth/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'UnexpectedClient/9.9',
+        },
+        body: JSON.stringify({ refresh_token: loginTokens.refreshToken }),
+      });
+      const matchedRefresh = await fetch(`${baseUrl}/v1/auth/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'CruzibleWallet/1.0',
+        },
+        body: JSON.stringify({ refresh_token: loginTokens.refreshToken }),
+      });
+      const matchedTokens = await matchedRefresh.json();
+
+      expect(mismatchedRefresh.status).toBe(401);
+      expect(matchedRefresh.status).toBe(200);
+      expect(matchedTokens.refreshToken).not.toBe(loginTokens.refreshToken);
+    });
+  });
+
   it('revokes refresh tokens on logout', async () => {
     await withAuthRoutes(async (baseUrl) => {
       const challenge = await (

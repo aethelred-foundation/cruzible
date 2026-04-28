@@ -27,6 +27,8 @@ This runbook does not assume that every checked-in infrastructure artifact is tu
   login, refresh-token rotation, and logout revocation.
 - Operator/admin role changes are re-evaluated during refresh-token rotation;
   already-issued access tokens remain valid until their configured short expiry.
+- Refresh-token rotation is bound to the login user-agent. IP context drift is
+  logged for investigation but not rejected by default to avoid mobile/VPN lockouts.
 
 ## 3. Startup Paths
 

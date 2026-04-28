@@ -272,6 +272,8 @@ export async function refreshAccessToken(
       throw new Error('Refresh session is invalid or already rotated');
     }
 
+    logRefreshSessionIpDrift(rotated, nextSession);
+
     return tokens;
   } catch (error) {
     logger.warn('Token refresh rejected', { error });
@@ -410,6 +412,32 @@ function buildTokenSession(
   };
 }
 
+function hasRefreshSessionContextMismatch(
+  session: StoredRefreshSession,
+  nextSession: StoredRefreshSession,
+): boolean {
+  return Boolean(
+    session.userAgentHash &&
+      session.userAgentHash !== nextSession.userAgentHash,
+  );
+}
+
+function logRefreshSessionIpDrift(
+  session: StoredRefreshSession,
+  nextSession: StoredRefreshSession,
+): void {
+  if (
+    session.ipHash &&
+    nextSession.ipHash &&
+    session.ipHash !== nextSession.ipHash
+  ) {
+    logger.warn('Refresh session IP context changed during rotation', {
+      address: session.address,
+      sessionId: session.id,
+    });
+  }
+}
+
 /**
  * Parse expiration string to seconds. Supports hours and days, matching the
  * config schema.
@@ -534,6 +562,13 @@ async function rotateRefreshSession(
     if (!isRefreshSessionUsable(session, now)) {
       return null;
     }
+    if (hasRefreshSessionContextMismatch(session, nextSession)) {
+      logger.warn('Refresh session context mismatch during rotation', {
+        address: session.address,
+        sessionId: session.id,
+      });
+      return null;
+    }
     session.revokedAt = now;
     session.rotatedAt = now;
     memoryRefreshSessions.set(nextSession.tokenHash, nextSession);
@@ -546,6 +581,13 @@ async function rotateRefreshSession(
     });
 
     if (!isRefreshSessionUsable(session, now)) {
+      return null;
+    }
+    if (hasRefreshSessionContextMismatch(session, nextSession)) {
+      logger.warn('Refresh session context mismatch during rotation', {
+        address: session.address,
+        sessionId: session.id,
+      });
       return null;
     }
 
