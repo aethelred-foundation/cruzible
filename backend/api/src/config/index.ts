@@ -11,6 +11,19 @@ const optionalUrlSchema = z.preprocess(
   z.string().url().optional(),
 );
 
+const optionalBooleanSchema = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  z
+    .enum(["true", "false"])
+    .transform((value) => value === "true")
+    .optional(),
+);
+
+const optionalSecretSchema = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  z.string().min(32).optional(),
+);
+
 const evmAddressSchema = z
   .string()
   .default("")
@@ -55,6 +68,9 @@ const envSchema = z.object({
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(10),
   OPS_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(60_000),
   OPS_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(60),
+  METRICS_ENABLED: optionalBooleanSchema,
+  API_DOCS_ENABLED: optionalBooleanSchema,
+  OPERATIONAL_ENDPOINTS_TOKEN: optionalSecretSchema,
 
   // Indexer configuration
   INDEXER_WS_URL: optionalUrlSchema,
@@ -113,6 +129,8 @@ const authOperatorAddresses = parseAddressList(
   parsedEnv.AUTH_OPERATOR_ADDRESSES,
   "AUTH_OPERATOR_ADDRESSES",
 );
+const metricsEnabled = parsedEnv.METRICS_ENABLED ?? true;
+const apiDocsEnabled = parsedEnv.API_DOCS_ENABLED ?? !isProduction;
 
 function requireProductionConfig(value: unknown, message: string): void {
   if (value === undefined || value === null || value === "") {
@@ -252,6 +270,9 @@ export const config = {
   authRateLimitMax: parsedEnv.AUTH_RATE_LIMIT_MAX,
   opsRateLimitWindowMs: parsedEnv.OPS_RATE_LIMIT_WINDOW_MS,
   opsRateLimitMax: parsedEnv.OPS_RATE_LIMIT_MAX,
+  metricsEnabled,
+  apiDocsEnabled,
+  operationalEndpointsToken: parsedEnv.OPERATIONAL_ENDPOINTS_TOKEN,
 
   // Indexer
   indexerWsUrl,

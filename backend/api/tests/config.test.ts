@@ -23,6 +23,9 @@ const CONFIG_ENV_KEYS = [
   "AUTH_RATE_LIMIT_MAX",
   "OPS_RATE_LIMIT_WINDOW_MS",
   "OPS_RATE_LIMIT_MAX",
+  "METRICS_ENABLED",
+  "API_DOCS_ENABLED",
+  "OPERATIONAL_ENDPOINTS_TOKEN",
   "INDEXER_ENABLED",
   "INDEXER_RPC_URL",
   "INDEXER_WS_URL",
@@ -118,6 +121,8 @@ describe("backend config hardening", () => {
     expect(config.redisUrl).toBe(productionBaseEnv.REDIS_URL);
     expect(config.authOperatorAddresses).toEqual(["aeth1operator"]);
     expect(config.trustProxy).toBe(1);
+    expect(config.metricsEnabled).toBe(true);
+    expect(config.apiDocsEnabled).toBe(false);
   });
 
   it("rejects missing DATABASE_URL in production", async () => {
@@ -215,6 +220,30 @@ describe("backend config hardening", () => {
     });
 
     expect(config.trustProxy).toBe(2);
+  });
+
+  it("parses operational endpoint controls", async () => {
+    const { config } = await loadConfigWithEnv({
+      NODE_ENV: "development",
+      METRICS_ENABLED: "false",
+      API_DOCS_ENABLED: "true",
+      OPERATIONAL_ENDPOINTS_TOKEN: "12345678901234567890123456789012",
+    });
+
+    expect(config.metricsEnabled).toBe(false);
+    expect(config.apiDocsEnabled).toBe(true);
+    expect(config.operationalEndpointsToken).toBe(
+      "12345678901234567890123456789012",
+    );
+  });
+
+  it("rejects short operational endpoint tokens", async () => {
+    await expect(
+      loadConfigWithEnv({
+        NODE_ENV: "development",
+        OPERATIONAL_ENDPOINTS_TOKEN: "too-short",
+      }),
+    ).rejects.toThrow(/OPERATIONAL_ENDPOINTS_TOKEN/);
   });
 
   it("rejects invalid reconciliation threshold ordering", async () => {

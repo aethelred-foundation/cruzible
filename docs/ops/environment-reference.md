@@ -1,7 +1,7 @@
 # Cruzible Environment Reference
 
 > Repo-aligned environment contract for the current workspace snapshot.
-> Last reconciled on 2026-04-27.
+> Last reconciled on 2026-04-28.
 
 ## 1. Loading Behavior
 
@@ -50,6 +50,9 @@ These variables are validated or consumed by `backend/api` in the current snapsh
 | `TRUST_PROXY`                     | No                                     | `loopback`                  | Express trust proxy setting; production rejects unbounded `true`, use a hop count such as `1` behind ingress |
 | `RATE_LIMIT_WINDOW_MS`            | No                                     | `60000`                     | Global limiter window                                                                                        |
 | `RATE_LIMIT_MAX`                  | No                                     | `120`                       | Global limiter max request count                                                                             |
+| `METRICS_ENABLED`                 | No                                     | `true`                      | Controls `/metrics`; production requires `OPERATIONAL_ENDPOINTS_TOKEN` when enabled                          |
+| `API_DOCS_ENABLED`                | No                                     | local/test `true`, production `false` | Controls Swagger UI at `/docs`; production requires `OPERATIONAL_ENDPOINTS_TOKEN` when enabled       |
+| `OPERATIONAL_ENDPOINTS_TOKEN`     | Required in production when operational endpoints are exposed | blank | Bearer or `X-Operational-Token` credential for `/metrics` and `/docs`; must be at least 32 characters         |
 | `ALLOW_MOCK_SIGNATURES`           | No                                     | `false`                     | Development-only escape hatch; blocked in production                                                         |
 | `AUTH_OPERATOR_ADDRESSES`         | Required in production for ops access  | blank                       | Comma-separated `aeth1...` wallet addresses that receive the `operator` role at login                        |
 | `AUTH_ADMIN_ADDRESSES`            | Required in production for ops access  | blank                       | Comma-separated `aeth1...` wallet addresses that receive `operator` and `admin` roles at login               |
@@ -97,10 +100,11 @@ The variables below are referenced by `backend/infra/docker-compose.yml`. They s
 
 - `REDIS_URL` is consumed by `backend/api/src/services/CacheService.ts`. Production startup refuses to run without it, while local/test runs may use the in-memory fallback.
 - `GRPC_URL` appears in node-facing Compose scaffolding but is not part of the API config contract enforced by `backend/api/src/config/index.ts`.
-- Protected ops endpoints require bearer JWTs issued through the `/v1/auth` wallet nonce/login flow.
+- Protected `/v1` ops endpoints require bearer JWTs issued through the `/v1/auth` wallet nonce/login flow.
+- Operational surfaces (`/metrics` and `/docs`) use `OPERATIONAL_ENDPOINTS_TOKEN` in production, accepted as `Authorization: Bearer <token>` or `X-Operational-Token: <token>`. Configure Prometheus or ingress probes with that credential instead of exposing these endpoints anonymously.
 - Alert history uses PostgreSQL when `DATABASE_URL` is configured and falls back to in-memory history only when database-backed API state is unavailable.
 - `backend/infra/docker-compose.yml` still references additional config directories that are not checked in.
-- `k8s/base/backend.yaml` expects non-secret runtime config in `cruzible-api-config` and secret values in `cruzible-api-secrets` with keys `database-url`, `redis-url`, `jwt-secret`, and `jwt-refresh-secret`.
+- `k8s/base/backend.yaml` expects non-secret runtime config in `cruzible-api-config` and secret values in `cruzible-api-secrets` with keys `database-url`, `redis-url`, `jwt-secret`, `jwt-refresh-secret`, and `operational-endpoints-token`.
 
 ## 6. Production Hygiene Rules Already Enforced In Code
 
@@ -114,6 +118,7 @@ When `NODE_ENV=production`, API startup refuses to run with:
 - `ALLOW_MOCK_SIGNATURES=true`
 - no configured `AUTH_OPERATOR_ADDRESSES` or `AUTH_ADMIN_ADDRESSES`
 - unbounded `TRUST_PROXY=true`
+- exposed `/metrics` or `/docs` endpoints without `OPERATIONAL_ENDPOINTS_TOKEN`
 - `INDEXER_ENABLED=true` without explicit indexer RPC/WebSocket URLs and all contract addresses
 
 Environment validation also rejects malformed URLs, malformed or zero EVM addresses,

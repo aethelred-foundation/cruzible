@@ -10,9 +10,11 @@ data:
   auth.operator.addresses: ""
   cors.origins: "https://app.cruzible.example"
   cruzible.vault.address: "REPLACE_WITH_CRUZIBLE_VAULT_ADDRESS"
+  api.docs.enabled: "false"
   indexer.rpc.url: "REPLACE_WITH_EVM_RPC_URL"
   indexer.start.block: "0"
   indexer.ws.url: "REPLACE_WITH_EVM_WS_URL"
+  metrics.enabled: "true"
   rpc.url: "REPLACE_WITH_AETHELRED_RPC_URL"
   stablecoin.bridge.address: "REPLACE_WITH_STABLECOIN_BRIDGE_ADDRESS"
   staethel.address: "REPLACE_WITH_STAETHEL_ADDRESS"
@@ -41,9 +43,10 @@ spec:
         app: cruzible-api
         tier: backend
       annotations:
+        cruzible.io/metrics-auth: "bearer-token-required"
         prometheus.io/path: /metrics
         prometheus.io/port: "3000"
-        prometheus.io/scrape: "true"
+        prometheus.io/scrape: "false"
     spec:
       securityContext:
         fsGroup: 1001
@@ -81,6 +84,16 @@ spec:
                 configMapKeyRef:
                   name: cruzible-api-config
                   key: cors.origins
+            - name: METRICS_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: cruzible-api-config
+                  key: metrics.enabled
+            - name: API_DOCS_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: cruzible-api-config
+                  key: api.docs.enabled
             - name: AUTH_OPERATOR_ADDRESSES
               valueFrom:
                 configMapKeyRef:
@@ -111,6 +124,11 @@ spec:
                 secretKeyRef:
                   name: cruzible-api-secrets
                   key: jwt-refresh-secret
+            - name: OPERATIONAL_ENDPOINTS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: cruzible-api-secrets
+                  key: operational-endpoints-token
             - name: ALERT_WEBHOOK_URL
               valueFrom:
                 secretKeyRef:
@@ -162,9 +180,10 @@ metadata:
     app: cruzible-api
     tier: backend
   annotations:
+    cruzible.io/metrics-auth: "bearer-token-required"
     prometheus.io/path: /metrics
     prometheus.io/port: "80"
-    prometheus.io/scrape: "true"
+    prometheus.io/scrape: "false"
 spec:
   selector:
     app: cruzible-api

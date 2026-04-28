@@ -42,7 +42,29 @@ describe('rate limiter', () => {
     });
   });
 
-  it('skips /health from rate limiting', async () => {
+  it('skips liveness and readiness probes from rate limiting', async () => {
+    const { rateLimiter } = await import('../src/middleware/rateLimiter');
+
+    const app = express();
+    app.use(rateLimiter);
+    app.get('/health/live', (_req, res) => {
+      res.json({ ok: true });
+    });
+    app.get('/health/ready', (_req, res) => {
+      res.json({ ok: true });
+    });
+
+    await withHttpServer(app, async (baseUrl) => {
+      for (let i = 0; i < 4; i += 1) {
+        const live = await fetch(`${baseUrl}/health/live`);
+        const ready = await fetch(`${baseUrl}/health/ready`);
+        expect(live.status).toBe(200);
+        expect(ready.status).toBe(200);
+      }
+    });
+  });
+
+  it('rate limits comprehensive health checks', async () => {
     const { rateLimiter } = await import('../src/middleware/rateLimiter');
 
     const app = express();
@@ -52,14 +74,17 @@ describe('rate limiter', () => {
     });
 
     await withHttpServer(app, async (baseUrl) => {
-      for (let i = 0; i < 4; i += 1) {
-        const response = await fetch(`${baseUrl}/health`);
-        expect(response.status).toBe(200);
-      }
+      const firstHealth = await fetch(`${baseUrl}/health`);
+      const secondHealth = await fetch(`${baseUrl}/health`);
+      const thirdHealth = await fetch(`${baseUrl}/health`);
+
+      expect(firstHealth.status).toBe(200);
+      expect(secondHealth.status).toBe(200);
+      expect(thirdHealth.status).toBe(429);
     });
   });
 
-  it('skips /metrics from rate limiting', async () => {
+  it('rate limits metrics surfaces', async () => {
     const { rateLimiter } = await import('../src/middleware/rateLimiter');
 
     const app = express();
@@ -69,10 +94,13 @@ describe('rate limiter', () => {
     });
 
     await withHttpServer(app, async (baseUrl) => {
-      for (let i = 0; i < 4; i += 1) {
-        const response = await fetch(`${baseUrl}/metrics`);
-        expect(response.status).toBe(200);
-      }
+      const firstMetrics = await fetch(`${baseUrl}/metrics`);
+      const secondMetrics = await fetch(`${baseUrl}/metrics`);
+      const thirdMetrics = await fetch(`${baseUrl}/metrics`);
+
+      expect(firstMetrics.status).toBe(200);
+      expect(secondMetrics.status).toBe(200);
+      expect(thirdMetrics.status).toBe(429);
     });
   });
 

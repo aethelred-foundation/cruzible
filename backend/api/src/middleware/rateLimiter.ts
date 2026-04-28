@@ -93,7 +93,7 @@ export const rateLimiter = rateLimit({
   }),
   passOnStoreError: false,
   skip: (req) =>
-    req.path === '/health' || req.path === '/metrics' || req.path.startsWith('/docs'),
+    req.path === '/health/live' || req.path === '/health/ready',
   handler: (req, res) => {
     res.status(429).json({
       error: 'TooManyRequests',

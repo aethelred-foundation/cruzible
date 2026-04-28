@@ -27,6 +27,7 @@ import { swaggerSpec } from './config/swagger';
 import { errorHandler } from './middleware/errorHandler';
 import { rateLimiter } from './middleware/rateLimiter';
 import { metricsHandler, metricsMiddleware } from './middleware/metrics';
+import { requireOperationalAccess } from './middleware/operationalAccess';
 import { requestId } from './middleware/requestId';
 import { requestLogger } from './middleware/requestLogger';
 
@@ -83,9 +84,22 @@ export class ApiGateway {
 
   private initialize(): void {
     this.initializeMiddleware();
+    this.validateOperationalSurfaceConfig();
     this.initializeRoutes();
     this.initializeWebSocket();
     this.initializeErrorHandling();
+  }
+
+  private validateOperationalSurfaceConfig(): void {
+    if (
+      config.isProduction &&
+      (config.metricsEnabled || config.apiDocsEnabled) &&
+      !config.operationalEndpointsToken
+    ) {
+      throw new Error(
+        'Refusing to expose operational endpoints in production without OPERATIONAL_ENDPOINTS_TOKEN',
+      );
+    }
   }
 
   private initializeMiddleware(): void {
@@ -211,22 +225,25 @@ export class ApiGateway {
   }
 
   private initializeRoutes(): void {
-    // Prometheus scrape endpoint (no rate limit)
-    this.app.get('/metrics', metricsHandler);
+    if (config.metricsEnabled) {
+      this.app.get('/metrics', requireOperationalAccess, metricsHandler);
+    }
 
-    // Health check (no rate limit)
+    // Health probes. /health/live and /health/ready are exempt from rate limits.
     this.app.use('/health', healthRouter);
 
-    // API documentation
-    this.app.use(
-      '/docs',
-      swaggerUi.serve,
-      swaggerUi.setup(swaggerSpec, {
-        explorer: true,
-        customCss: '.swagger-ui .topbar { display: none }',
-        customSiteTitle: 'Aethelred API Documentation',
-      }),
-    );
+    if (config.apiDocsEnabled) {
+      this.app.use(
+        '/docs',
+        requireOperationalAccess,
+        swaggerUi.serve,
+        swaggerUi.setup(swaggerSpec, {
+          explorer: true,
+          customCss: '.swagger-ui .topbar { display: none }',
+          customSiteTitle: 'Aethelred API Documentation',
+        }),
+      );
+    }
 
     // API routes
     this.app.use('/v1', v1Router);
@@ -237,9 +254,9 @@ export class ApiGateway {
         name: 'Aethelred API Gateway',
         version: config.version,
         environment: config.env,
-        documentation: '/docs',
         health: '/health',
         api: '/v1',
+        ...(config.apiDocsEnabled ? { documentation: '/docs' } : {}),
       });
     });
 
@@ -295,7 +312,9 @@ export class ApiGateway {
     await new Promise<void>((resolve) => {
       this.httpServer.listen(config.port, () => {
         logger.info(`API Gateway running on port ${config.port}`);
-        logger.info(`API Documentation: http://localhost:${config.port}/docs`);
+        if (config.apiDocsEnabled) {
+          logger.info(`API Documentation: http://localhost:${config.port}/docs`);
+        }
         logger.info(`WebSocket: ws://localhost:${config.port}`);
         logger.info(`Connected to: ${config.rpcUrl}`);
         resolve();
