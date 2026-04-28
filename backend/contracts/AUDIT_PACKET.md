@@ -77,8 +77,10 @@ checksums and manifest.
   production-mode governance-controlled feeder membership.
 - Seal creation depends on the configured AI job manager address returning
   canonical job state.
-- Verified AI jobs emit a model registry `IncrementJobCount` call from the
-  configured AI job manager address after deployment.
+- Job submission requires a registered, verified model hash. Verified AI jobs
+  emit an error-handled model registry `IncrementJobCount` submessage from the
+  configured AI job manager address after deployment, so registry-side stats
+  failures are observable but do not strand completed user jobs.
 - The model registry is instantiated before the AI job manager address is
   known, so the staging manifest must record the post-instantiate
   `UpdateConfig` transaction that sets the final AI job manager role.
@@ -117,7 +119,8 @@ Before production readiness can be claimed, run a staging drill that covers:
   action that authorizes the deployed vault as final minter.
 - Stake, compound, unstake, approve, burn, unbond, and claim flows.
 - Submit, assign, complete, verify, pay, and seal an AI job.
-- Register a model and increment job counts through the authorized job manager.
+- Register and verify a model, submit jobs only against verified model hashes,
+  and observe job-count submessages from the authorized job manager.
 - Record and verify the model registry post-instantiate `UpdateConfig` action
   that authorizes the deployed AI job manager.
 - Activate a governance proposal with feeder-backed total-bonded snapshots.

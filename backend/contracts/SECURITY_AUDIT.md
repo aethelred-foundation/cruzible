@@ -21,19 +21,19 @@ Contracts reviewed:
 
 ## Previously Critical Areas
 
-| Area                        | Prior risk                                                          | Current status                                                                    |
-| --------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Vault reward claims         | Repeat claims could over-withdraw rewards.                          | Remediated with reward index/checkpoint accounting.                               |
-| Vault unbonding claims      | Unbonding requests could be double claimed.                         | Remediated with claimed-state handling and terminal claim flow.                   |
-| Vault share rounding        | Small deposits/withdrawals could exploit rounding.                  | Remediated with protocol-favorable rounding behavior.                             |
-| Vault liquid staking token  | Internal shares did not fully exercise stAETHEL mint/burn behavior. | Remediated with staking-token mint on stake/compound/restake and burn on unstake. |
-| Vault donations             | Direct transfers could distort share price.                         | Remediated with accounted balance and donation controls.                          |
-| AI job payment              | Verified job payment could be claimed repeatedly.                   | Remediated with Paid-state double-claim guard.                                    |
-| Governance voting           | Placeholder voting power and quorum allowed capture.                | Remediated with snapshot/quorum controls.                                         |
-| Governance feeder control   | Admin-only feeder membership could centralize oracle control.       | Remediated for production mode with governance-authorized feeder mutations.       |
-| Model registry fees         | Registration fee was not enforced.                                  | Remediated with fee amount and denom validation.                                  |
-| Model registry usage counts | Public job-count mutation could corrupt metrics.                    | Remediated with job-manager authorization and verified-job count updates.         |
-| Seal provenance             | Seals could be created without verified upstream job evidence.      | Remediated with cross-contract job verification.                                  |
+| Area                        | Prior risk                                                          | Current status                                                                                                              |
+| --------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Vault reward claims         | Repeat claims could over-withdraw rewards.                          | Remediated with reward index/checkpoint accounting.                                                                         |
+| Vault unbonding claims      | Unbonding requests could be double claimed.                         | Remediated with claimed-state handling and terminal claim flow.                                                             |
+| Vault share rounding        | Small deposits/withdrawals could exploit rounding.                  | Remediated with protocol-favorable rounding behavior.                                                                       |
+| Vault liquid staking token  | Internal shares did not fully exercise stAETHEL mint/burn behavior. | Remediated with staking-token mint on stake/compound/restake and burn on unstake.                                           |
+| Vault donations             | Direct transfers could distort share price.                         | Remediated with accounted balance and donation controls.                                                                    |
+| AI job payment              | Verified job payment could be claimed repeatedly.                   | Remediated with Paid-state double-claim guard.                                                                              |
+| Governance voting           | Placeholder voting power and quorum allowed capture.                | Remediated with snapshot/quorum controls.                                                                                   |
+| Governance feeder control   | Admin-only feeder membership could centralize oracle control.       | Remediated for production mode with governance-authorized feeder mutations.                                                 |
+| Model registry fees         | Registration fee was not enforced.                                  | Remediated with fee amount and denom validation.                                                                            |
+| Model registry usage counts | Public job-count mutation could corrupt metrics.                    | Remediated with submit-time verified-model checks, job-manager authorization, and liveness-safe verified-job count updates. |
+| Seal provenance             | Seals could be created without verified upstream job evidence.      | Remediated with cross-contract job verification.                                                                            |
 
 ## Current Test Evidence
 
@@ -42,13 +42,13 @@ Local `cargo test` from `backend/contracts` passes:
 | Suite            | Passing tests |
 | ---------------- | ------------: |
 | `vault`          |            24 |
-| `ai_job_manager` |            52 |
+| `ai_job_manager` |            55 |
 | `cw20_staking`   |            42 |
 | `governance`     |            49 |
 | `model_registry` |            50 |
 | `seal_manager`   |            27 |
 | Doc tests        |             0 |
-| **Total**        |       **244** |
+| **Total**        |       **247** |
 
 ## Residual Review Focus
 

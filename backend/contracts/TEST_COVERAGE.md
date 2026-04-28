@@ -9,18 +9,18 @@ cd backend/contracts
 cargo test
 ```
 
-Observed result: **244 passing tests**.
+Observed result: **247 passing tests**.
 
 | Suite            | Passing tests |
 | ---------------- | ------------: |
 | `vault`          |            24 |
-| `ai_job_manager` |            52 |
+| `ai_job_manager` |            55 |
 | `cw20_staking`   |            42 |
 | `governance`     |            49 |
 | `model_registry` |            50 |
 | `seal_manager`   |            27 |
 | Doc tests        |             0 |
-| **Total**        |       **244** |
+| **Total**        |       **247** |
 
 ## Covered Remediation Themes
 
@@ -34,7 +34,7 @@ The passing test set includes coverage for the current hardening work:
 - AI job Paid-state double-claim guard.
 - Governance snapshot, quorum, feeder oracle, and governance-controlled feeder membership controls.
 - Model registry registration fee amount and denom enforcement.
-- Model registry job-manager authorization and AI job manager verified-job count updates.
+- Model registry job-manager authorization, AI job manager submit-time verified-model checks, and liveness-safe verified-job count updates.
 - Seal manager cross-contract job verification.
 
 ## Coverage Limits

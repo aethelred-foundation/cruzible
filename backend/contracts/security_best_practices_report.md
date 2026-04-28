@@ -30,19 +30,19 @@ Supporting assurance documents:
 
 The current code includes remediations for the previously tracked critical and high-risk areas:
 
-| Area                      | Current evidence                                                                                                  |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Vault reward accounting   | Reward index/checkpoint controls prevent repeat reward claims and stale pro-rata reward capture.                  |
-| Vault withdrawal claims   | Claimed-state handling and terminal request state prevent double claim of unbonding requests.                     |
-| Vault rounding            | Share mint/burn rounding is protocol-favorable and covered by security tests.                                     |
-| Vault stAETHEL lifecycle  | Stake, compound, and restake mint stAETHEL; unstake burns stAETHEL through the configured staking token contract. |
-| Vault donation controls   | Accounted balance tracking and donation controls prevent direct-transfer share price inflation.                   |
-| AI job payment claims     | Paid-state transition prevents repeated settlement of the same verified job.                                      |
-| Governance voting         | Snapshot voting power and quorum controls replace placeholder voting and execution logic.                         |
-| Governance feeder oracle  | Multi-feeder median consensus rejects unsafe quorum, tolerance, feeder capacity, and authority settings.          |
-| Model registry fees       | Registration fee amount and denom enforcement is active.                                                          |
-| Model registry job counts | Job-count mutation is restricted to and emitted by the authorized job manager.                                    |
-| Seal manager provenance   | Seal creation verifies the referenced job through the configured job manager.                                     |
+| Area                      | Current evidence                                                                                                                                                    |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Vault reward accounting   | Reward index/checkpoint controls prevent repeat reward claims and stale pro-rata reward capture.                                                                    |
+| Vault withdrawal claims   | Claimed-state handling and terminal request state prevent double claim of unbonding requests.                                                                       |
+| Vault rounding            | Share mint/burn rounding is protocol-favorable and covered by security tests.                                                                                       |
+| Vault stAETHEL lifecycle  | Stake, compound, and restake mint stAETHEL; unstake burns stAETHEL through the configured staking token contract.                                                   |
+| Vault donation controls   | Accounted balance tracking and donation controls prevent direct-transfer share price inflation.                                                                     |
+| AI job payment claims     | Paid-state transition prevents repeated settlement of the same verified job.                                                                                        |
+| Governance voting         | Snapshot voting power and quorum controls replace placeholder voting and execution logic.                                                                           |
+| Governance feeder oracle  | Multi-feeder median consensus rejects unsafe quorum, tolerance, feeder capacity, and authority settings.                                                            |
+| Model registry fees       | Registration fee amount and denom enforcement is active.                                                                                                            |
+| Model registry job counts | Submit-time jobs require verified models; normal job-count updates are emitted by the authorized job manager, with admin mutation retained for controlled recovery. |
+| Seal manager provenance   | Seal creation verifies the referenced job through the configured job manager.                                                                                       |
 
 ## Current Test Evidence
 
@@ -57,20 +57,20 @@ Passing test counts:
 | Suite            | Passing tests |
 | ---------------- | ------------: |
 | `vault`          |            24 |
-| `ai_job_manager` |            52 |
+| `ai_job_manager` |            55 |
 | `cw20_staking`   |            42 |
 | `governance`     |            49 |
 | `model_registry` |            50 |
 | `seal_manager`   |            27 |
 | Doc tests        |             0 |
-| **Total**        |       **244** |
+| **Total**        |       **247** |
 
 ## Audit-Candidate Readiness
 
 The workspace is suitable for an external audit candidate branch after the following evidence is packaged:
 
 - Current source tree and Cargo lockfile.
-- Reproducible `cargo test` output showing 244 passing tests.
+- Reproducible `cargo test` output showing 247 passing tests.
 - Commit-scoped wasm artifacts, `SHA256SUMS`, and `manifest.json` from CI.
 - Detached artifact signatures generated with `RELEASE_SIGNING.md` before launch.
 - Strict release manifest reconciliation against the signed artifact directory.

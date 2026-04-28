@@ -5,8 +5,14 @@
  */
 #[cfg(test)]
 mod tests {
-    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{coins, from_json, Addr, CosmosMsg, Timestamp, Uint128, WasmMsg};
+    use cosmwasm_std::testing::{
+        mock_dependencies, mock_env, mock_info, MockApi, MockQuerier, MockStorage,
+    };
+    use cosmwasm_std::{
+        coins, from_json, to_json_binary, Addr, ContractResult, CosmosMsg, OwnedDeps, Reply,
+        ReplyOn, SubMsgResult, SystemError, SystemResult, Timestamp, Uint128, WasmMsg, WasmQuery,
+    };
+    use model_registry::ExecuteMsg as RegistryExecuteMsg;
 
     use crate::*;
 
@@ -19,6 +25,51 @@ mod tests {
     const PAYMENT_DENOM: &str = "aeth";
 
     // ============ HELPER FUNCTIONS ============
+    fn mock_dependencies_with_model_response(
+        verified: Option<bool>,
+    ) -> OwnedDeps<MockStorage, MockApi, MockQuerier> {
+        let mut deps = mock_dependencies();
+        deps.querier.update_wasm(move |query| match query {
+            WasmQuery::Smart { contract_addr, msg } if contract_addr == MODEL_REGISTRY => {
+                let request: Result<ModelRegistryQueryMsg, _> = from_json(msg);
+                match request {
+                    Ok(ModelRegistryQueryMsg::Model { model_hash }) if model_hash == "model123" => {
+                        match verified {
+                            Some(verified) => SystemResult::Ok(ContractResult::Ok(
+                                to_json_binary(&ModelRegistryModelResponse { verified }).unwrap(),
+                            )),
+                            None => {
+                                SystemResult::Ok(ContractResult::Err("model not found".to_string()))
+                            }
+                        }
+                    }
+                    Ok(ModelRegistryQueryMsg::Model { .. }) => {
+                        SystemResult::Ok(ContractResult::Err("model not found".to_string()))
+                    }
+                    Err(err) => SystemResult::Err(SystemError::InvalidRequest {
+                        error: err.to_string(),
+                        request: msg.clone(),
+                    }),
+                }
+            }
+            WasmQuery::Smart { contract_addr, msg } => {
+                SystemResult::Err(SystemError::InvalidRequest {
+                    error: format!("unexpected wasm query contract: {contract_addr}"),
+                    request: msg.clone(),
+                })
+            }
+            _ => SystemResult::Err(SystemError::InvalidRequest {
+                error: "unimplemented wasm query".to_string(),
+                request: cosmwasm_std::Binary::default(),
+            }),
+        });
+        deps
+    }
+
+    fn mock_dependencies_with_registered_model() -> OwnedDeps<MockStorage, MockApi, MockQuerier> {
+        mock_dependencies_with_model_response(Some(true))
+    }
+
     fn setup_contract(deps: DepsMut) -> (Config, MessageInfo) {
         let info = mock_info(ADMIN, &[]);
         let msg = InstantiateMsg {
@@ -97,7 +148,7 @@ mod tests {
 
     #[test]
     fn instantiate_works() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         let (config, _) = setup_contract(deps.as_mut());
 
         assert_eq!(config.payment_denom, PAYMENT_DENOM);
@@ -109,7 +160,7 @@ mod tests {
 
     #[test]
     fn instantiate_with_invalid_fee_collector_fails() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         let info = mock_info(ADMIN, &[]);
         // MockApi.addr_validate() rejects empty strings
         let msg = InstantiateMsg {
@@ -131,7 +182,7 @@ mod tests {
 
     #[test]
     fn submit_job_works() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
 
         let (job_id, _) = setup_job(deps.as_mut(), CREATOR, 10000);
@@ -149,7 +200,7 @@ mod tests {
 
     #[test]
     fn submit_job_without_payment_fails() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
 
         let info = mock_info(CREATOR, &[]);
@@ -167,7 +218,7 @@ mod tests {
 
     #[test]
     fn submit_job_below_min_payment_fails() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
 
         let info = mock_info(CREATOR, &coins(500, PAYMENT_DENOM)); // Below min 1000
@@ -185,7 +236,7 @@ mod tests {
 
     #[test]
     fn submit_job_timeout_too_short_fails() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
 
         let info = mock_info(CREATOR, &coins(10000, PAYMENT_DENOM));
@@ -203,7 +254,7 @@ mod tests {
 
     #[test]
     fn submit_job_timeout_too_long_fails() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
 
         let info = mock_info(CREATOR, &coins(10000, PAYMENT_DENOM));
@@ -219,11 +270,49 @@ mod tests {
         assert!(matches!(err, ContractError::TimeoutTooShort {}));
     }
 
+    #[test]
+    fn submit_job_unknown_model_fails_without_locking_payment() {
+        let mut deps = mock_dependencies_with_registered_model();
+        setup_contract(deps.as_mut());
+
+        let info = mock_info(CREATOR, &coins(10000, PAYMENT_DENOM));
+        let msg = ExecuteMsg::SubmitJob {
+            model_hash: "unknown_model".to_string(),
+            input_hash: "input456".to_string(),
+            proof_type: ProofType::TeeAttestation,
+            priority: 5,
+            timeout: 1000,
+        };
+
+        let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
+        assert!(matches!(err, ContractError::InvalidModel {}));
+        assert_eq!(JOB_COUNT.load(&deps.storage).unwrap(), 0);
+    }
+
+    #[test]
+    fn submit_job_unverified_model_fails() {
+        let mut deps = mock_dependencies_with_model_response(Some(false));
+        setup_contract(deps.as_mut());
+
+        let info = mock_info(CREATOR, &coins(10000, PAYMENT_DENOM));
+        let msg = ExecuteMsg::SubmitJob {
+            model_hash: "model123".to_string(),
+            input_hash: "input456".to_string(),
+            proof_type: ProofType::TeeAttestation,
+            priority: 5,
+            timeout: 1000,
+        };
+
+        let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
+        assert!(matches!(err, ContractError::InvalidModel {}));
+        assert_eq!(JOB_COUNT.load(&deps.storage).unwrap(), 0);
+    }
+
     // ============ ASSIGN JOB TESTS ============
 
     #[test]
     fn assign_job_works() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
         let (job_id, _) = setup_job(deps.as_mut(), CREATOR, 10000);
 
@@ -245,7 +334,7 @@ mod tests {
 
     #[test]
     fn assign_job_not_pending_fails() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
         let (job_id, _) = setup_job(deps.as_mut(), CREATOR, 10000);
 
@@ -274,7 +363,7 @@ mod tests {
 
     #[test]
     fn assign_expired_job_fails() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
         let (job_id, _) = setup_job(deps.as_mut(), CREATOR, 10000);
 
@@ -292,7 +381,7 @@ mod tests {
 
     #[test]
     fn start_computing_works() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
         let (job_id, _) = setup_job(deps.as_mut(), CREATOR, 10000);
 
@@ -325,7 +414,7 @@ mod tests {
 
     #[test]
     fn start_computing_not_assigned_validator_fails() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
         let (job_id, _) = setup_job(deps.as_mut(), CREATOR, 10000);
 
@@ -351,7 +440,7 @@ mod tests {
 
     #[test]
     fn start_computing_not_assigned_status_fails() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
         let (job_id, _) = setup_job(deps.as_mut(), CREATOR, 10000);
 
@@ -368,7 +457,7 @@ mod tests {
 
     #[test]
     fn complete_job_works() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
         let (job_id, _) = setup_job(deps.as_mut(), CREATOR, 10000);
 
@@ -419,7 +508,7 @@ mod tests {
 
     #[test]
     fn complete_job_invalid_tee_type_fails() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
 
         // Setup with required TEE type
         let info = mock_info(ADMIN, &[]);
@@ -491,7 +580,7 @@ mod tests {
 
     #[test]
     fn verify_job_works() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
         let (job_id, _) = setup_job(deps.as_mut(), CREATOR, 10000);
 
@@ -544,6 +633,8 @@ mod tests {
             .iter()
             .any(|a| a.key == "action" && a.value == "verify_job"));
         assert_eq!(res.messages.len(), 1);
+        assert_eq!(res.messages[0].id, MODEL_REGISTRY_INCREMENT_REPLY_ID);
+        assert_eq!(res.messages[0].reply_on, ReplyOn::Error);
         match &res.messages[0].msg {
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr,
@@ -552,10 +643,10 @@ mod tests {
             }) => {
                 assert_eq!(contract_addr, MODEL_REGISTRY);
                 assert!(funds.is_empty());
-                let registry_msg: ModelRegistryExecuteMsg = from_json(msg).unwrap();
+                let registry_msg: RegistryExecuteMsg = from_json(msg).unwrap();
                 assert_eq!(
                     registry_msg,
-                    ModelRegistryExecuteMsg::IncrementJobCount {
+                    RegistryExecuteMsg::IncrementJobCount {
                         model_hash: "model123".to_string(),
                     }
                 );
@@ -568,8 +659,32 @@ mod tests {
     }
 
     #[test]
+    fn registry_increment_failure_reply_emits_warning_event() {
+        let mut deps = mock_dependencies_with_registered_model();
+        setup_contract(deps.as_mut());
+
+        let res = reply(
+            deps.as_mut(),
+            mock_env(),
+            Reply {
+                id: MODEL_REGISTRY_INCREMENT_REPLY_ID,
+                result: SubMsgResult::Err("model not found".to_string()),
+            },
+        )
+        .unwrap();
+
+        assert!(res.events.iter().any(|event| {
+            event.ty == "model_registry_job_count_increment_failed"
+                && event
+                    .attributes
+                    .iter()
+                    .any(|attr| attr.key == "error" && attr.value == "model not found")
+        }));
+    }
+
+    #[test]
     fn verify_job_unauthorized_fails() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
         let (job_id, _) = setup_job(deps.as_mut(), CREATOR, 10000);
 
@@ -588,7 +703,7 @@ mod tests {
 
     #[test]
     fn fail_job_works() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
         let (job_id, _) = setup_job(deps.as_mut(), CREATOR, 10000);
 
@@ -637,7 +752,7 @@ mod tests {
 
     #[test]
     fn cancel_job_works() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
         let (job_id, info) = setup_job(deps.as_mut(), CREATOR, 10000);
 
@@ -657,7 +772,7 @@ mod tests {
 
     #[test]
     fn cancel_job_not_creator_fails() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
         let (job_id, _) = setup_job(deps.as_mut(), CREATOR, 10000);
 
@@ -670,7 +785,7 @@ mod tests {
 
     #[test]
     fn cancel_job_not_pending_fails() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
         let (job_id, info) = setup_job(deps.as_mut(), CREATOR, 10000);
 
@@ -697,7 +812,7 @@ mod tests {
 
     #[test]
     fn claim_payment_works() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
         let (job_id, _) = setup_job(deps.as_mut(), CREATOR, 10000);
 
@@ -766,7 +881,7 @@ mod tests {
 
     #[test]
     fn claim_payment_not_assigned_validator_fails() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
         let (job_id, _) = setup_job(deps.as_mut(), CREATOR, 10000);
 
@@ -781,7 +896,7 @@ mod tests {
 
     #[test]
     fn update_config_works() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         let (_config, admin_info) = setup_contract(deps.as_mut());
 
         let msg = ExecuteMsg::UpdateConfig {
@@ -804,7 +919,7 @@ mod tests {
 
     #[test]
     fn update_config_not_admin_fails() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
 
         let info = mock_info("not_admin", &[]);
@@ -822,7 +937,7 @@ mod tests {
 
     #[test]
     fn query_config_works() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
 
         let res = query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap();
@@ -834,7 +949,7 @@ mod tests {
 
     #[test]
     fn query_job_works() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
         let (job_id, _) = setup_job(deps.as_mut(), CREATOR, 10000);
 
@@ -854,7 +969,7 @@ mod tests {
 
     #[test]
     fn query_job_not_found_fails() {
-        let deps = mock_dependencies();
+        let deps = mock_dependencies_with_registered_model();
 
         let err = query(
             deps.as_ref(),
@@ -869,7 +984,7 @@ mod tests {
 
     #[test]
     fn query_list_jobs_works() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
 
         // Create multiple jobs
@@ -896,7 +1011,7 @@ mod tests {
 
     #[test]
     fn query_pending_queue_works() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
 
         setup_job(deps.as_mut(), CREATOR, 10000);
@@ -915,7 +1030,7 @@ mod tests {
 
     #[test]
     fn query_job_stats_works() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
 
         let res = query(deps.as_ref(), mock_env(), QueryMsg::PlatformStats {}).unwrap();
@@ -927,7 +1042,7 @@ mod tests {
 
     #[test]
     fn query_pricing_works() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
 
         let res = query(
@@ -949,7 +1064,7 @@ mod tests {
 
     #[test]
     fn validator_stats_updated_on_complete() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
         let (job_id, _) = setup_job(deps.as_mut(), CREATOR, 10000);
 
@@ -1014,7 +1129,7 @@ mod tests {
 
     #[test]
     fn cleanup_expired_works() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
 
         // Create a job (timeout=1000 blocks, created_at=mock_env().block.height=12345)
@@ -1041,7 +1156,7 @@ mod tests {
 
     #[test]
     fn job_id_generation_unique() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
 
         let (job_id1, _) = setup_job(deps.as_mut(), CREATOR, 10000);
@@ -1052,7 +1167,7 @@ mod tests {
 
     #[test]
     fn multiple_jobs_same_creator() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
 
         let (job_id1, _) = setup_job(deps.as_mut(), CREATOR, 10000);
@@ -1071,7 +1186,7 @@ mod tests {
 
     #[test]
     fn complete_job_calculates_payment_correctly() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
         let (job_id, _) = setup_job(deps.as_mut(), CREATOR, 10000);
 
@@ -1123,7 +1238,7 @@ mod tests {
 
     #[test]
     fn platform_stats_initialized_to_zero() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
 
         let res = query(deps.as_ref(), mock_env(), QueryMsg::PlatformStats {}).unwrap();
@@ -1138,7 +1253,7 @@ mod tests {
 
     #[test]
     fn platform_stats_tracks_job_submission() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
 
         setup_job(deps.as_mut(), CREATOR, 10000);
@@ -1154,7 +1269,7 @@ mod tests {
 
     #[test]
     fn platform_stats_completed_jobs_increments_on_verify() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
         let (job_id, _) = setup_job(deps.as_mut(), CREATOR, 10000);
 
@@ -1214,7 +1329,7 @@ mod tests {
 
     #[test]
     fn platform_stats_failed_jobs_increments_on_fail() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
         let (job_id, _) = setup_job(deps.as_mut(), CREATOR, 10000);
 
@@ -1259,7 +1374,7 @@ mod tests {
 
     #[test]
     fn platform_stats_total_payments_increments_on_claim() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
         let (job_id, _) = setup_job(deps.as_mut(), CREATOR, 10000);
 
@@ -1329,7 +1444,7 @@ mod tests {
 
     #[test]
     fn platform_stats_aggregates_multiple_operations() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
 
         // Job 1: complete and verify
@@ -1420,7 +1535,7 @@ mod tests {
 
     #[test]
     fn double_claim_payment_rejected() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
         let (job_id, _) = setup_job(deps.as_mut(), CREATOR, 10000);
 
@@ -1490,7 +1605,7 @@ mod tests {
 
     #[test]
     fn claim_payment_transitions_to_paid_status() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
         let (job_id, _) = setup_job(deps.as_mut(), CREATOR, 10000);
 
@@ -1556,7 +1671,7 @@ mod tests {
 
     #[test]
     fn update_config_fee_above_cap_rejected() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
 
         let admin_info = mock_info(ADMIN, &[]);
@@ -1576,7 +1691,7 @@ mod tests {
 
     #[test]
     fn update_config_fee_at_cap_succeeds() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
 
         let admin_info = mock_info(ADMIN, &[]);
@@ -1600,7 +1715,7 @@ mod tests {
 
     #[test]
     fn verify_job_emits_monitoring_event() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
         let (job_id, _) = setup_job(deps.as_mut(), CREATOR, 10000);
 
@@ -1661,7 +1776,7 @@ mod tests {
 
     #[test]
     fn fail_job_emits_monitoring_event() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
         let (job_id, _) = setup_job(deps.as_mut(), CREATOR, 10000);
 
@@ -1707,7 +1822,7 @@ mod tests {
 
     #[test]
     fn claim_payment_emits_monitoring_event() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
         let (job_id, _) = setup_job(deps.as_mut(), CREATOR, 10000);
 
@@ -1776,7 +1891,7 @@ mod tests {
 
     #[test]
     fn migration_success() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         setup_contract(deps.as_mut());
 
         let res = migrate(deps.as_mut(), mock_env(), MigrateMsg {}).unwrap();
@@ -1785,7 +1900,7 @@ mod tests {
 
     #[test]
     fn migration_wrong_contract_fails() {
-        let mut deps = mock_dependencies();
+        let mut deps = mock_dependencies_with_registered_model();
         let env = mock_env();
         cw2::set_contract_version(deps.as_mut().storage, "wrong-contract", "0.1.0").unwrap();
         let err = migrate(deps.as_mut(), env, MigrateMsg {}).unwrap_err();
