@@ -4,6 +4,8 @@ import { container } from 'tsyringe';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { withHttpServer } from './helpers/http';
 
+const OPERATIONAL_TOKEN = '12345678901234567890123456789012';
+
 // ---------------------------------------------------------------------------
 // Mocks — hoisted by vitest before any imports
 // ---------------------------------------------------------------------------
@@ -70,6 +72,9 @@ describe('/health/ready readiness gating', () => {
   async function setProductionMode(enabled: boolean) {
     const { config } = await import('../src/config');
     (config as unknown as { isProduction: boolean }).isProduction = enabled;
+    (
+      config as unknown as { operationalEndpointsToken?: string }
+    ).operationalEndpointsToken = enabled ? OPERATIONAL_TOKEN : undefined;
   }
 
   /** Register mock ReconciliationScheduler and AlertService. */
@@ -146,21 +151,25 @@ describe('/health/ready readiness gating', () => {
       const body = await res.json();
       const serializedBody = JSON.stringify(body);
       const fullHealthRes = await fetch(`${baseUrl}/health`);
-      const fullHealthBody = await fullHealthRes.json();
-      const serializedFullHealthBody = JSON.stringify(fullHealthBody);
+      const fullHealthUnauthorizedBody = await fullHealthRes.json();
+      const authorizedFullHealthRes = await fetch(`${baseUrl}/health`, {
+        headers: { 'x-operational-token': OPERATIONAL_TOKEN },
+      });
+      const authorizedFullHealthBody = await authorizedFullHealthRes.json();
+      const serializedFullHealthBody = JSON.stringify(authorizedFullHealthBody);
 
       expect(res.status).toBe(503);
       expect(body.ready).toBe(false);
-      expect(body.checks.blockchainRpc.status).toBe('error');
-      expect(body.checks.blockchainRpc.message).toBe(
-        'Probe failed; see server logs for details.',
-      );
+      expect(body.status).toBe('not_ready');
+      expect(body.checks).toBeUndefined();
       expect(serializedBody).not.toContain('secret-rpc.internal');
       expect(serializedBody).not.toContain('26657');
 
-      expect(fullHealthRes.status).toBe(503);
-      expect(fullHealthBody.checks.blockchainRpc.status).toBe('error');
-      expect(fullHealthBody.checks.blockchainRpc.message).toBe(
+      expect(fullHealthRes.status).toBe(401);
+      expect(fullHealthUnauthorizedBody.error).toBe('Unauthorized');
+      expect(authorizedFullHealthRes.status).toBe(503);
+      expect(authorizedFullHealthBody.checks.blockchainRpc.status).toBe('error');
+      expect(authorizedFullHealthBody.checks.blockchainRpc.message).toBe(
         'Probe failed; see server logs for details.',
       );
       expect(serializedFullHealthBody).not.toContain('secret-rpc.internal');

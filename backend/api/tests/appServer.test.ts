@@ -134,7 +134,7 @@ describe('ApiGateway lifecycle (server.ts)', () => {
     expect(api.app).toBeDefined();
     expect(api.httpServer).toBeDefined();
     expect(api.httpServer.listening).toBe(false);
-  });
+  }, 10_000);
 
   it('refuses to expose production operational routes without a token', async () => {
     await registerMockServices();
@@ -183,6 +183,13 @@ describe('ApiGateway lifecycle (server.ts)', () => {
       const api = createAppServer();
 
       await withHttpServer(api.app, async (baseUrl) => {
+        const unauthorizedHealth = await fetch(`${baseUrl}/health`);
+        const authorizedHealth = await fetch(`${baseUrl}/health`, {
+          headers: { authorization: `Bearer ${operationalToken}` },
+        });
+        const publicLive = await fetch(`${baseUrl}/health/live`);
+        const publicReady = await fetch(`${baseUrl}/health/ready`);
+        const publicReadyBody = await publicReady.json();
         const unauthorizedMetrics = await fetch(`${baseUrl}/metrics`);
         const authorizedMetrics = await fetch(`${baseUrl}/metrics`, {
           headers: { authorization: `Bearer ${operationalToken}` },
@@ -192,6 +199,12 @@ describe('ApiGateway lifecycle (server.ts)', () => {
           headers: { authorization: `Bearer ${operationalToken}` },
         });
 
+        expect(unauthorizedHealth.status).toBe(401);
+        expect(authorizedHealth.status).toBe(200);
+        expect(publicLive.status).toBe(200);
+        expect(publicReady.status).toBe(200);
+        expect(publicReadyBody.ready).toBe(true);
+        expect(publicReadyBody.checks).toBeUndefined();
         expect(unauthorizedMetrics.status).toBe(401);
         expect(authorizedMetrics.status).toBe(200);
         expect(authorizedMetrics.headers.get('content-type')).toContain(

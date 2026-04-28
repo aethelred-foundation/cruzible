@@ -40,7 +40,7 @@ This document is not a launch promise. It is a snapshot-aligned record of:
 | ---------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Documentation baseline             | Good       | Core README, backend README, runbook, env reference, and readiness docs now describe checked-in surfaces instead of inferred ones                                                                                                  |
 | Config examples                    | Good       | Frontend and backend examples now separate runtime inputs from scaffold-only values                                                                                                                                                |
-| API observability                  | Partial    | Health/readiness/docs are implemented, Prometheus-compatible `/metrics` is exposed, alert history is database-backed when `DATABASE_URL` is configured, and API cache uses Redis when `REDIS_URL` is configured                    |
+| API observability                  | Partial    | Public liveness/readiness probes are implemented, full `/health`, `/metrics`, and `/docs` are token-gated in production, alert history is database-backed when `DATABASE_URL` is configured, and API cache uses Redis when `REDIS_URL` is configured |
 | Deployment scaffolding             | Partial    | Compose now builds API and indexer targets from the repository root; referenced config directories still need to be supplied and staged                                                                                            |
 | Kubernetes readiness               | Partial    | Frontend, API gateway, and indexer manifests are checked in with fail-closed config/secret requirements; staging validation is still required                                                                                      |
 | Admin/ops authentication bootstrap | Partial    | Wallet-backed nonce login, context-bound refresh rotation, logout revocation, refresh-session incident endpoints, and role-gated ops routes exist; production startup now requires at least one configured operator/admin wallet and deployments must apply the auth-state migration |
@@ -62,7 +62,8 @@ This document is not a launch promise. It is a snapshot-aligned record of:
 - Secrets are provisioned externally and rotated outside version control.
 - PostgreSQL and RPC endpoints are operator-managed dependencies.
 - Compose and Kubernetes artifacts in this repository are scaffolding, not complete deployment truth.
-- Protected operational endpoints require externally provisioned JWTs.
+- Full operational diagnostics require `OPERATIONAL_ENDPOINTS_TOKEN`; protected
+  `/v1` operational endpoints require externally provisioned JWTs.
 - Some frontend surfaces are still preview-oriented and should not be mistaken for proof of live on-chain wiring.
 - `/devtools` is hidden in production unless `NEXT_PUBLIC_ENABLE_DEVTOOLS=true` is explicitly configured.
 

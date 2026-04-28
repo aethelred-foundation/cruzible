@@ -16,7 +16,6 @@ This directory contains the backend-side pieces of the Cruzible workspace: the A
 
 ### Public endpoints
 
-- `GET /health`
 - `GET /health/live`
 - `GET /health/ready`
 - `GET /v1/auth/nonce`
@@ -32,6 +31,7 @@ Additional route details are available from the checked-in Swagger annotations w
 
 ### Protected endpoints
 
+- `GET /health`
 - `GET /metrics`
 - `GET /docs`
 - `GET /v1/auth/sessions/:address`
@@ -40,10 +40,13 @@ Additional route details are available from the checked-in Swagger annotations w
 - `GET /v1/alerts/summary`
 - `GET /v1/reconciliation/status`
 
-`/metrics` and `/docs` are local-friendly but production-gated by
-`OPERATIONAL_ENDPOINTS_TOKEN`; docs default to disabled in production unless
-`API_DOCS_ENABLED=true` is set. The `/v1` protected routes require a bearer JWT
-with the `operator` or `admin` role. Operators
+`/health/live` remains a public liveness probe. `/health/ready` remains public
+for infrastructure probes, but production responses only expose a minimal
+ready/not-ready result. Full `/health`, `/metrics`, and `/docs` diagnostics are
+local-friendly but production-gated by `OPERATIONAL_ENDPOINTS_TOKEN`; docs
+default to disabled in production unless `API_DOCS_ENABLED=true` is set. The
+`/v1` protected routes require a bearer JWT with the `operator` or `admin` role.
+Operators
 obtain tokens through the wallet-backed `/v1/auth` nonce/login flow. Configure
 at least one `AUTH_OPERATOR_ADDRESSES` or `AUTH_ADMIN_ADDRESSES` value before
 relying on protected ops routes; production startup fails closed when both are

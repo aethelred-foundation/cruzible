@@ -93,7 +93,6 @@ export class ApiGateway {
   private validateOperationalSurfaceConfig(): void {
     if (
       config.isProduction &&
-      (config.metricsEnabled || config.apiDocsEnabled) &&
       !config.operationalEndpointsToken
     ) {
       throw new Error(

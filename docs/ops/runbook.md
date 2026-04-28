@@ -151,11 +151,13 @@ fallbacks use in-process buffers that are cleared on restart.
 
 ### Investigation flow when readiness fails
 
-1. Query `/health` and `/health/ready`.
-2. Check whether the failing signal is `database`, `blockchainRpc`, `indexer`, or `reconciliation`.
-3. Verify `DATABASE_URL`, `REDIS_URL`, and `RPC_URL` reachability from the runtime environment.
-4. Inspect API logs for startup errors, Prisma failures, or indexer connection errors.
-5. Confirm whether the issue is operational drift or a genuine protocol anomaly before treating it as resolved.
+1. Query public `/health/ready` to confirm the deployment is not ready.
+2. Query full `/health` with `Authorization: Bearer $OPERATIONAL_ENDPOINTS_TOKEN`
+   or `X-Operational-Token` to inspect detailed diagnostics.
+3. Check whether the failing signal is `database`, `blockchainRpc`, `indexer`, or `reconciliation`.
+4. Verify `DATABASE_URL`, `REDIS_URL`, and `RPC_URL` reachability from the runtime environment.
+5. Inspect API logs for startup errors, Prisma failures, or indexer connection errors.
+6. Confirm whether the issue is operational drift or a genuine protocol anomaly before treating it as resolved.
 
 ## 6. Database and Migration Handling
 
@@ -188,7 +190,7 @@ npm run db:migrate:deploy
 
 - Redeploy the previous `backend/api` image or build artifact.
 - Restore the prior env bundle if the incident was introduced by config changes.
-- Re-check `/health` and `/health/ready` after rollback.
+- Re-check public `/health/ready` and token-gated `/health` after rollback.
 
 ### Contracts
 
@@ -214,6 +216,8 @@ npm run db:migrate:deploy
 - Read [docs/ops/environment-reference.md](environment-reference.md) before provisioning config.
 - Use [docs/architecture/12-public-readiness.md](../architecture/12-public-readiness.md) as the current readiness register.
 - Confirm JWT secrets and CORS settings are production-safe before any shared deployment.
+- Confirm `OPERATIONAL_ENDPOINTS_TOKEN` gates full `/health`, `/metrics`, and `/docs`
+  while `/health/live` and minimal `/health/ready` remain usable by probes.
 - Confirm auth role address lists are set and test `/v1/auth/nonce`,
   `/v1/auth/login`, `/v1/auth/refresh`, and `/v1/auth/logout`.
 - Confirm operator session incident response with `/v1/auth/sessions/:address`
