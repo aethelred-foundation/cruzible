@@ -76,7 +76,7 @@ bft-core = { path = "crates/bft-core" }
 # WASM for smart contracts
 wasmer = { version = "4.2", features = ["cranelift", "singlepass"] }
 wasmer-compiler-cranelift = "4.2"
-wasmtime = "18.0"
+wasmtime = "24.0.7"
 
 # AI/ML Verification
 tract-onnx = "0.21"
