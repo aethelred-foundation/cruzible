@@ -104,6 +104,7 @@ The variables below are referenced by `backend/infra/docker-compose.yml`. They s
 - Operator/admin role changes are re-evaluated on every protected ops request and when refresh tokens rotate, so removing a wallet from `AUTH_OPERATOR_ADDRESSES` or `AUTH_ADMIN_ADDRESSES` blocks stale privileged access tokens as well as future refreshed tokens.
 - Refresh-token rotation requires the same user-agent context recorded at login. IP context changes are logged as drift signals but are not rejected by default.
 - Operators can inspect non-secret refresh-session metadata via `GET /v1/auth/sessions/:address` and revoke active wallet refresh sessions plus outstanding access tokens via `POST /v1/auth/sessions/:address/revoke`.
+- Privileged wallet and operational-token gates emit `privileged_access_audit` log events with request ID, principal type, decision, outcome, and response status for audit correlation.
 - Operational surfaces (`/metrics` and `/docs`) use `OPERATIONAL_ENDPOINTS_TOKEN` in production, accepted as `Authorization: Bearer <token>` or `X-Operational-Token: <token>`. Configure Prometheus or ingress probes with that credential instead of exposing these endpoints anonymously.
 - Alert history uses PostgreSQL when `DATABASE_URL` is configured and falls back to in-memory history only when database-backed API state is unavailable.
 - `backend/infra/docker-compose.yml` still references additional config directories that are not checked in.

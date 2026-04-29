@@ -1,0 +1,157 @@
+import express from 'express';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { withHttpServer } from './helpers/http';
+
+vi.mock('../src/utils/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
+import { logger } from '../src/utils/logger';
+
+const originalEnv = { ...process.env };
+const OPERATIONAL_TOKEN = '12345678901234567890123456789012';
+
+describe('privileged access audit logging', () => {
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+    vi.resetModules();
+    vi.mocked(logger.info).mockClear();
+    vi.mocked(logger.warn).mockClear();
+    vi.mocked(logger.error).mockClear();
+  });
+
+  afterEach(() => {
+    process.env = { ...originalEnv };
+    vi.resetModules();
+  });
+
+  it('logs successful wallet-gated privileged requests', async () => {
+    const { config } = await import('../src/config');
+    (config as any).authOperatorAddresses = ['aeth1operator'];
+
+    const { authenticate, requireRoles } = await import('../src/auth/middleware');
+    const { generateTokens } = await import('../src/auth/service');
+    const { accessToken } = generateTokens({
+      address: 'aeth1operator',
+      roles: ['user', 'operator'],
+    });
+
+    const app = express();
+    app.use((req, res, next) => {
+      req.requestId = 'audit-wallet-success';
+      res.setHeader('x-request-id', req.requestId);
+      next();
+    });
+    app.get('/ops', authenticate, requireRoles('operator'), (_req, res) => {
+      res.json({ ok: true });
+    });
+
+    await withHttpServer(app, async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/ops?access_token=secret`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      expect(response.status).toBe(200);
+      expect(logger.info).toHaveBeenCalledWith(
+        'Privileged access audit',
+        expect.objectContaining({
+          type: 'privileged_access_audit',
+          requestId: 'audit-wallet-success',
+          method: 'GET',
+          path: '/ops',
+          principalType: 'wallet',
+          actorAddress: 'aeth1operator',
+          requiredRoles: ['operator'],
+          tokenRoles: ['user', 'operator'],
+          currentRoles: ['user', 'operator'],
+          decision: 'allowed',
+          outcome: 'succeeded',
+          statusCode: 200,
+        }),
+      );
+    });
+  });
+
+  it('logs rejected production operational-token requests', async () => {
+    const { config } = await import('../src/config');
+    (config as any).isProduction = true;
+    (config as any).operationalEndpointsToken = OPERATIONAL_TOKEN;
+
+    const { requireOperationalAccess } = await import(
+      '../src/middleware/operationalAccess'
+    );
+    const app = express();
+    app.use((req, res, next) => {
+      req.requestId = 'audit-operational-reject';
+      res.setHeader('x-request-id', req.requestId);
+      next();
+    });
+    app.get('/metrics', requireOperationalAccess, (_req, res) => {
+      res.type('text/plain').send('ok');
+    });
+
+    await withHttpServer(app, async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/metrics`);
+
+      expect(response.status).toBe(401);
+      expect(logger.warn).toHaveBeenCalledWith(
+        'Privileged access audit',
+        expect.objectContaining({
+          type: 'privileged_access_audit',
+          requestId: 'audit-operational-reject',
+          method: 'GET',
+          path: '/metrics',
+          principalType: 'operational-token',
+          decision: 'rejected',
+          reason: 'missing_or_invalid_operational_token',
+          outcome: 'rejected',
+          statusCode: 401,
+        }),
+      );
+    });
+  });
+
+  it('logs successful production operational-token requests', async () => {
+    const { config } = await import('../src/config');
+    (config as any).isProduction = true;
+    (config as any).operationalEndpointsToken = OPERATIONAL_TOKEN;
+
+    const { requireOperationalAccess } = await import(
+      '../src/middleware/operationalAccess'
+    );
+    const app = express();
+    app.use((req, res, next) => {
+      req.requestId = 'audit-operational-success';
+      res.setHeader('x-request-id', req.requestId);
+      next();
+    });
+    app.get('/metrics', requireOperationalAccess, (_req, res) => {
+      res.type('text/plain').send('ok');
+    });
+
+    await withHttpServer(app, async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/metrics`, {
+        headers: { authorization: `Bearer ${OPERATIONAL_TOKEN}` },
+      });
+
+      expect(response.status).toBe(200);
+      expect(logger.info).toHaveBeenCalledWith(
+        'Privileged access audit',
+        expect.objectContaining({
+          type: 'privileged_access_audit',
+          requestId: 'audit-operational-success',
+          method: 'GET',
+          path: '/metrics',
+          principalType: 'operational-token',
+          decision: 'allowed',
+          outcome: 'succeeded',
+          statusCode: 200,
+        }),
+      );
+    });
+  });
+});

@@ -10,6 +10,7 @@ import {
   resolveRolesForAddress,
   verifyAccessToken,
 } from './service';
+import { auditPrivilegedAccess } from '../middleware/privilegedAudit';
 import { logger } from '../utils/logger';
 
 /**
@@ -127,6 +128,15 @@ export function requireRoles(...allowedRoles: string[]) {
       const hasCurrentRole = currentRoles.some(role => allowedRoles.includes(role));
 
       if (!hasTokenRole || !hasCurrentRole) {
+        auditPrivilegedAccess(req, res, {
+          principalType: 'wallet',
+          actorAddress: req.user.address,
+          tokenRoles,
+          currentRoles,
+          requiredRoles: allowedRoles,
+          decision: 'rejected',
+          reason: hasTokenRole ? 'role_no_longer_current' : 'missing_required_role',
+        });
         logger.warn('Insufficient permissions', {
           address: req.user.address,
           required: allowedRoles,
@@ -142,6 +152,15 @@ export function requireRoles(...allowedRoles: string[]) {
       }
 
       if (await isAccessTokenRevoked(req.user)) {
+        auditPrivilegedAccess(req, res, {
+          principalType: 'wallet',
+          actorAddress: req.user.address,
+          tokenRoles,
+          currentRoles,
+          requiredRoles: allowedRoles,
+          decision: 'rejected',
+          reason: 'access_token_revoked',
+        });
         logger.warn('Revoked access token rejected', {
           address: req.user.address,
           required: allowedRoles,
@@ -158,6 +177,15 @@ export function requireRoles(...allowedRoles: string[]) {
         ...req.user,
         roles: currentRoles,
       };
+
+      auditPrivilegedAccess(req, res, {
+        principalType: 'wallet',
+        actorAddress: req.user.address,
+        tokenRoles,
+        currentRoles,
+        requiredRoles: allowedRoles,
+        decision: 'allowed',
+      });
 
       next();
     } catch (error) {

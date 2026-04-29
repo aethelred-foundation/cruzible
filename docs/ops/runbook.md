@@ -34,6 +34,9 @@ This runbook does not assume that every checked-in infrastructure artifact is tu
   `GET /v1/auth/sessions/:address` and revoke active wallet sessions with
   `POST /v1/auth/sessions/:address/revoke`. Revocation also invalidates
   outstanding access tokens for that wallet.
+- Privileged wallet and operational-token gates emit `privileged_access_audit`
+  log events for successful and rejected requests. Retain these logs with the
+  corresponding `requestId` during incident review.
 
 ## 3. Startup Paths
 

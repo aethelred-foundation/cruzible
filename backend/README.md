@@ -54,6 +54,9 @@ empty or malformed.
 Refresh-session incident endpoints expose non-secret metadata only and support
 bulk revocation of active refresh sessions and outstanding privileged access
 tokens for a wallet.
+Successful and rejected privileged requests emit `privileged_access_audit`
+events with request ID, actor or operational-token principal, required roles,
+decision, outcome, status, IP, and user agent.
 
 ### Runtime characteristics
 

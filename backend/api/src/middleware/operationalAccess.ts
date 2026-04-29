@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'crypto';
 import type { NextFunction, Request, Response } from 'express';
 import { config } from '../config';
+import { auditPrivilegedAccess } from './privilegedAudit';
 
 function readOperationalToken(req: Request): string | undefined {
   const explicitToken = req.get('x-operational-token')?.trim();
@@ -49,10 +50,19 @@ export function requireOperationalAccess(
     providedToken &&
     isEqualToken(providedToken, expectedToken)
   ) {
+    auditPrivilegedAccess(req, res, {
+      principalType: 'operational-token',
+      decision: 'allowed',
+    });
     next();
     return;
   }
 
+  auditPrivilegedAccess(req, res, {
+    principalType: 'operational-token',
+    decision: 'rejected',
+    reason: 'missing_or_invalid_operational_token',
+  });
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('WWW-Authenticate', 'Bearer realm="cruzible-operations"');
   res.status(401).json({
