@@ -101,6 +101,7 @@ The variables below are referenced by `backend/infra/docker-compose.yml`. They s
 - `REDIS_URL` is consumed by `backend/api/src/services/CacheService.ts`. Production startup refuses to run without it, while local/test runs may use the in-memory fallback.
 - `GRPC_URL` appears in node-facing Compose scaffolding but is not part of the API config contract enforced by `backend/api/src/config/index.ts`.
 - Protected `/v1` ops endpoints require bearer JWTs issued through the `/v1/auth` wallet nonce/login flow.
+- Privileged audit retrieval and export endpoints are mounted under `/v1/audit` and require `operator` or `admin` bearer JWTs.
 - Operator/admin role changes are re-evaluated on every protected ops request and when refresh tokens rotate, so removing a wallet from `AUTH_OPERATOR_ADDRESSES` or `AUTH_ADMIN_ADDRESSES` blocks stale privileged access tokens as well as future refreshed tokens.
 - Refresh-token rotation requires the same user-agent context recorded at login. IP context changes are logged as drift signals but are not rejected by default.
 - Operators can inspect non-secret refresh-session metadata via `GET /v1/auth/sessions/:address` and revoke active wallet refresh sessions plus outstanding access tokens via `POST /v1/auth/sessions/:address/revoke`.

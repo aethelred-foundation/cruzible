@@ -34,6 +34,8 @@ Additional route details are available from the checked-in Swagger annotations w
 - `GET /health`
 - `GET /metrics`
 - `GET /docs`
+- `GET /v1/audit/privileged-access`
+- `GET /v1/audit/privileged-access/export`
 - `GET /v1/auth/sessions/:address`
 - `POST /v1/auth/sessions/:address/revoke`
 - `GET /v1/alerts`

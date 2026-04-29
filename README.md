@@ -99,6 +99,8 @@ At minimum, plan to provide:
 
 - `GET /v1/alerts`
 - `GET /v1/alerts/summary`
+- `GET /v1/audit/privileged-access`
+- `GET /v1/audit/privileged-access/export`
 - `GET /v1/reconciliation/status`
 
 Protected endpoints require bearer JWTs issued through the wallet-backed

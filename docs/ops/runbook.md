@@ -151,6 +151,10 @@ The reconciliation scheduler starts automatically with the API process.
 - `GET /v1/reconciliation/live` is public.
 - `GET /v1/reconciliation/status` requires a bearer JWT.
 - `GET /v1/alerts` and `GET /v1/alerts/summary` require a bearer JWT.
+- `GET /v1/audit/privileged-access` returns paginated privileged audit
+  evidence for operators/admins.
+- `GET /v1/audit/privileged-access/export?format=ndjson` exports the same
+  sanitized evidence as newline-delimited JSON; `format=csv` is also supported.
 
 ### Important operational caveat
 
