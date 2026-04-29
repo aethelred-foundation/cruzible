@@ -1,10 +1,12 @@
 import 'reflect-metadata';
+import { container } from 'tsyringe';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const originalEnv = { ...process.env };
 
 describe('AlertService', () => {
   beforeEach(() => {
+    container.clearInstances();
     vi.resetModules();
     process.env = {
       ...originalEnv,
@@ -17,6 +19,7 @@ describe('AlertService', () => {
 
   afterEach(() => {
     process.env = { ...originalEnv };
+    container.clearInstances();
     vi.resetModules();
   });
 
@@ -46,6 +49,7 @@ describe('AlertService', () => {
     });
     expect(summary.activeCritical).toBe(1);
     expect(activeCritical).toBe(1);
+    expect(summary.byType[AlertType.PRIVILEGED_ACCESS_REJECTED]).toBe(0);
   });
 
   it('rate-limits duplicate alert categories', async () => {
@@ -70,5 +74,32 @@ describe('AlertService', () => {
     expect(first).not.toBeNull();
     expect(second).toBeNull();
     expect(history.total).toBe(1);
+  });
+
+  it('uses a shared container instance for fallback alert history', async () => {
+    const { AlertService, AlertSeverity, AlertType } = await import(
+      '../src/services/AlertService'
+    );
+
+    const sender = container.resolve(AlertService);
+    const reader = container.resolve(AlertService);
+
+    await sender.sendAlert(
+      AlertSeverity.WARNING,
+      AlertType.PRIVILEGED_ACCESS_REJECTED,
+      'Privileged access request rejected',
+      { requestId: 'shared-alert-history' },
+    );
+
+    const history = await reader.getAlertHistory({
+      type: AlertType.PRIVILEGED_ACCESS_REJECTED,
+      limit: 10,
+    });
+
+    expect(sender).toBe(reader);
+    expect(history.total).toBe(1);
+    expect(history.data[0].metadata).toMatchObject({
+      requestId: 'shared-alert-history',
+    });
   });
 });

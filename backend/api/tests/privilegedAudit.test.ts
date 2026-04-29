@@ -1,4 +1,6 @@
+import 'reflect-metadata';
 import express from 'express';
+import { container } from 'tsyringe';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { withHttpServer } from './helpers/http';
 
@@ -18,6 +20,7 @@ const OPERATIONAL_TOKEN = '12345678901234567890123456789012';
 describe('privileged access audit logging', () => {
   beforeEach(() => {
     process.env = { ...originalEnv };
+    container.clearInstances();
     vi.resetModules();
     vi.mocked(logger.info).mockClear();
     vi.mocked(logger.warn).mockClear();
@@ -26,6 +29,7 @@ describe('privileged access audit logging', () => {
 
   afterEach(() => {
     process.env = { ...originalEnv };
+    container.clearInstances();
     vi.resetModules();
   });
 
@@ -141,6 +145,41 @@ describe('privileged access audit logging', () => {
           statusCode: 401,
         }),
       );
+
+      const { AlertService, AlertType } = await import(
+        '../src/services/AlertService'
+      );
+      const alertService = container.resolve(AlertService);
+
+      await expect
+        .poll(async () => {
+          const history = await alertService.getAlertHistory({
+            type: AlertType.PRIVILEGED_ACCESS_REJECTED,
+            limit: 10,
+          });
+          return history.total;
+        })
+        .toBe(1);
+
+      const history = await alertService.getAlertHistory({
+        type: AlertType.PRIVILEGED_ACCESS_REJECTED,
+        limit: 10,
+      });
+      expect(history.data[0]).toMatchObject({
+        severity: 'WARNING',
+        type: AlertType.PRIVILEGED_ACCESS_REJECTED,
+        message: 'Privileged access request rejected',
+        metadata: expect.objectContaining({
+          requestId: 'audit-operational-reject',
+          method: 'GET',
+          path: '/metrics',
+          principalType: 'operational-token',
+          decision: 'rejected',
+          reason: 'missing_or_invalid_operational_token',
+          statusCode: 401,
+        }),
+      });
+      expect(JSON.stringify(history.data[0])).not.toContain(OPERATIONAL_TOKEN);
     });
   });
 

@@ -155,6 +155,9 @@ The reconciliation scheduler starts automatically with the API process.
   evidence for operators/admins.
 - `GET /v1/audit/privileged-access/export?format=ndjson` exports the same
   sanitized evidence as newline-delimited JSON; `format=csv` is also supported.
+- Rejected privileged access attempts emit rate-limited
+  `PRIVILEGED_ACCESS_REJECTED` alerts, while privileged audit persistence
+  failures emit `PRIVILEGED_AUDIT_PERSISTENCE_FAILURE` critical alerts.
 
 ### Important operational caveat
 

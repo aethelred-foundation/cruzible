@@ -1,7 +1,10 @@
+import 'reflect-metadata';
 import { createHash } from 'crypto';
 import { PrismaClient } from '@prisma/client';
 import type { Request, Response } from 'express';
+import { container } from 'tsyringe';
 import { config } from '../config';
+import { AlertService, AlertSeverity, AlertType } from '../services/AlertService';
 import { logger } from '../utils/logger';
 
 type PrivilegedPrincipalType = 'wallet' | 'operational-token';
@@ -132,6 +135,49 @@ function buildPersistedAuditEvent(
   };
 }
 
+function auditAlertMetadata(entry: PrivilegedAuditEntry): Record<string, unknown> {
+  return {
+    requestId: entry.requestId,
+    method: entry.method,
+    path: entry.path,
+    principalType: entry.principalType,
+    actorAddress: entry.actorAddress,
+    requiredRoles: entry.requiredRoles,
+    decision: entry.decision,
+    reason: entry.reason,
+    outcome: entry.outcome,
+    statusCode: entry.statusCode,
+  };
+}
+
+function errorType(error: unknown): string {
+  return error instanceof Error ? error.name : typeof error;
+}
+
+async function emitPrivilegedAccessAlert(entry: PrivilegedAuditEntry): Promise<void> {
+  await container.resolve(AlertService).sendAlert(
+    AlertSeverity.WARNING,
+    AlertType.PRIVILEGED_ACCESS_REJECTED,
+    'Privileged access request rejected',
+    auditAlertMetadata(entry),
+  );
+}
+
+async function emitPrivilegedAuditPersistenceAlert(
+  entry: PrivilegedAuditEntry,
+  error: unknown,
+): Promise<void> {
+  await container.resolve(AlertService).sendAlert(
+    AlertSeverity.CRITICAL,
+    AlertType.PRIVILEGED_AUDIT_PERSISTENCE_FAILURE,
+    'Privileged access audit persistence failed',
+    {
+      ...auditAlertMetadata(entry),
+      errorType: errorType(error),
+    },
+  );
+}
+
 async function persistPrivilegedAuditEvent(entry: PrivilegedAuditEntry): Promise<void> {
   if (!auditPrisma) {
     const previousEventHash =
@@ -210,11 +256,28 @@ export function auditPrivilegedAccess(
       logger.info('Privileged access audit', auditEntry);
     }
 
+    if (context.decision === 'rejected') {
+      void emitPrivilegedAccessAlert(auditEntry).catch((error: unknown) => {
+        logger.error('Failed to emit privileged access alert', {
+          error,
+          requestId: auditEntry.requestId,
+        });
+      });
+    }
+
     void persistPrivilegedAuditEvent(auditEntry).catch((error: unknown) => {
       logger.error('Failed to persist privileged access audit', {
         error,
         requestId: auditEntry.requestId,
       });
+      void emitPrivilegedAuditPersistenceAlert(auditEntry, error).catch(
+        (alertError: unknown) => {
+          logger.error('Failed to emit privileged audit persistence alert', {
+            error: alertError,
+            requestId: auditEntry.requestId,
+          });
+        },
+      );
     });
   };
 

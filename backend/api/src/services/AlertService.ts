@@ -12,7 +12,7 @@
  *  - Maintain an in-memory fallback ring buffer for local/test operation
  */
 
-import { injectable } from 'tsyringe';
+import { singleton } from 'tsyringe';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
 import { config } from '../config';
@@ -37,6 +37,8 @@ export enum AlertType {
   STABLECOIN_CIRCUIT_BREAKER = 'STABLECOIN_CIRCUIT_BREAKER',
   STABLECOIN_RESERVE_DRIFT = 'STABLECOIN_RESERVE_DRIFT',
   STABLECOIN_CONFIG_MISMATCH = 'STABLECOIN_CONFIG_MISMATCH',
+  PRIVILEGED_ACCESS_REJECTED = 'PRIVILEGED_ACCESS_REJECTED',
+  PRIVILEGED_AUDIT_PERSISTENCE_FAILURE = 'PRIVILEGED_AUDIT_PERSISTENCE_FAILURE',
 }
 
 export type AlertMetadata = Record<string, unknown>;
@@ -69,7 +71,7 @@ const MAX_ALERT_HISTORY = 100;
 // Service
 // ---------------------------------------------------------------------------
 
-@injectable()
+@singleton()
 export class AlertService {
   /** In-memory ring buffer of recent alerts. Used as fallback and hot cache. */
   private readonly history: Alert[] = [];
@@ -238,16 +240,13 @@ export class AlertService {
       [AlertSeverity.WARNING]: 0,
       [AlertSeverity.CRITICAL]: 0,
     };
-    const byType = {
-      [AlertType.RECONCILIATION_MISMATCH]: 0,
-      [AlertType.EXCHANGE_RATE_DRIFT]: 0,
-      [AlertType.TVL_ANOMALY]: 0,
-      [AlertType.EPOCH_STALE]: 0,
-      [AlertType.VALIDATOR_COUNT_DROP]: 0,
-      [AlertType.STABLECOIN_CIRCUIT_BREAKER]: 0,
-      [AlertType.STABLECOIN_RESERVE_DRIFT]: 0,
-      [AlertType.STABLECOIN_CONFIG_MISMATCH]: 0,
-    };
+    const byType = Object.values(AlertType).reduce(
+      (counts, type) => {
+        counts[type] = 0;
+        return counts;
+      },
+      {} as Record<AlertType, number>,
+    );
 
     for (const alert of alerts) {
       bySeverity[alert.severity]++;
