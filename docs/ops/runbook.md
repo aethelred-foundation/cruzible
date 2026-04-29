@@ -37,6 +37,10 @@ This runbook does not assume that every checked-in infrastructure artifact is tu
 - Privileged wallet and operational-token gates emit `privileged_access_audit`
   log events for successful and rejected requests. Retain these logs with the
   corresponding `requestId` during incident review.
+- When PostgreSQL is configured, privileged audit decisions are persisted in the
+  append-only `PrivilegedAuditEvent` table. Treat the event hash chain and
+  `requestId` as incident evidence and preserve database snapshots before
+  remediation work.
 
 ## 3. Startup Paths
 
@@ -183,6 +187,8 @@ npm run db:migrate:deploy
 - `npm run db:migrate:deploy` applies checked-in migrations without creating development migration files and is the production deployment entrypoint.
 - Back up PostgreSQL before destructive data operations.
 - Do not rely on manual table truncation as a generic recovery procedure unless you have already captured a restorable backup and understand the downstream effects on indexer and reconciliation state.
+- `PrivilegedAuditEvent` is append-only at the database layer; do not bypass the
+  mutation-prevention trigger during incident handling.
 
 ## 7. Rollback Guidance
 

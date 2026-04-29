@@ -75,6 +75,33 @@ describe('privileged access audit logging', () => {
           statusCode: 200,
         }),
       );
+
+      const { getMemoryPrivilegedAuditEvents } = await import(
+        '../src/middleware/privilegedAudit'
+      );
+      const persistedEvents = getMemoryPrivilegedAuditEvents();
+
+      expect(persistedEvents).toHaveLength(1);
+      expect(persistedEvents[0]).toEqual(
+        expect.objectContaining({
+          requestId: 'audit-wallet-success',
+          method: 'GET',
+          path: '/ops',
+          principalType: 'wallet',
+          actorAddress: 'aeth1operator',
+          requiredRoles: ['operator'],
+          tokenRoles: ['user', 'operator'],
+          currentRoles: ['user', 'operator'],
+          decision: 'allowed',
+          outcome: 'succeeded',
+          statusCode: 200,
+          previousEventHash: null,
+        }),
+      );
+      expect(persistedEvents[0].eventHash).toMatch(/^[a-f0-9]{64}$/);
+      expect(persistedEvents[0].ipHash).toMatch(/^[a-f0-9]{64}$/);
+      expect(persistedEvents[0].userAgentHash).toMatch(/^[a-f0-9]{64}$/);
+      expect(JSON.stringify(persistedEvents[0])).not.toContain('secret');
     });
   });
 

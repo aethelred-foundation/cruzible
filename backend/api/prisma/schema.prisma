@@ -55,6 +55,34 @@ model AuthAccessRevocation {
   @@index([notBefore])
 }
 
+model PrivilegedAuditEvent {
+  id                String   @id @default(uuid())
+  requestId         String   @db.VarChar(128)
+  method            String   @db.VarChar(16)
+  path              String   @db.VarChar(512)
+  principalType     String   @db.VarChar(32)
+  actorAddress      String?  @db.VarChar(64)
+  requiredRoles     String[]
+  tokenRoles        String[]
+  currentRoles      String[]
+  decision          String   @db.VarChar(16)
+  reason            String?  @db.VarChar(120)
+  outcome           String   @db.VarChar(16)
+  statusCode        Int
+  responseTimeMs    Float
+  ipHash            String   @db.VarChar(64)
+  userAgentHash     String   @db.VarChar(64)
+  eventHash         String   @unique @db.VarChar(64)
+  previousEventHash String?  @db.VarChar(64)
+  createdAt         DateTime @default(now())
+
+  @@index([requestId])
+  @@index([actorAddress])
+  @@index([decision])
+  @@index([outcome])
+  @@index([createdAt])
+}
+
 // ============ BLOCKS ============
 
 model Block {

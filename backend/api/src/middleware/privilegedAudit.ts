@@ -1,8 +1,12 @@
+import { createHash } from 'crypto';
+import { PrismaClient } from '@prisma/client';
 import type { Request, Response } from 'express';
+import { config } from '../config';
 import { logger } from '../utils/logger';
 
 type PrivilegedPrincipalType = 'wallet' | 'operational-token';
 type PrivilegedDecision = 'allowed' | 'rejected';
+type PrivilegedOutcome = 'succeeded' | 'denied' | 'failed' | 'rejected';
 
 export interface PrivilegedAuditContext {
   principalType: PrivilegedPrincipalType;
@@ -14,6 +18,51 @@ export interface PrivilegedAuditContext {
   requiredRoles?: readonly string[];
 }
 
+interface PrivilegedAuditEntry {
+  type: 'privileged_access_audit';
+  timestamp: string;
+  requestId: string;
+  method: string;
+  path: string;
+  principalType: PrivilegedPrincipalType;
+  actorAddress?: string;
+  requiredRoles?: readonly string[];
+  tokenRoles?: readonly string[];
+  currentRoles?: readonly string[];
+  decision: PrivilegedDecision;
+  reason?: string;
+  outcome: PrivilegedOutcome;
+  statusCode: number;
+  responseTimeMs: number;
+  ip: string;
+  userAgent: string;
+}
+
+export interface PersistedPrivilegedAuditEvent {
+  requestId: string;
+  method: string;
+  path: string;
+  principalType: PrivilegedPrincipalType;
+  actorAddress: string | null;
+  requiredRoles: string[];
+  tokenRoles: string[];
+  currentRoles: string[];
+  decision: PrivilegedDecision;
+  reason: string | null;
+  outcome: PrivilegedOutcome;
+  statusCode: number;
+  responseTimeMs: number;
+  ipHash: string;
+  userAgentHash: string;
+  eventHash: string;
+  previousEventHash: string | null;
+  createdAt: Date;
+}
+
+const MAX_MEMORY_AUDIT_EVENTS = 500;
+const auditPrisma = config.databaseUrl ? new PrismaClient() : null;
+const memoryAuditEvents: PersistedPrivilegedAuditEvent[] = [];
+
 function getClientIp(req: Request): string {
   return req.ip || req.socket.remoteAddress || 'unknown';
 }
@@ -23,7 +72,7 @@ function getAuditPath(req: Request): string {
   return rawPath.split('?')[0] || 'unknown';
 }
 
-function getOutcome(statusCode: number, decision: PrivilegedDecision): string {
+function getOutcome(statusCode: number, decision: PrivilegedDecision): PrivilegedOutcome {
   if (decision === 'rejected') {
     return 'rejected';
   }
@@ -34,6 +83,88 @@ function getOutcome(statusCode: number, decision: PrivilegedDecision): string {
     return 'denied';
   }
   return 'succeeded';
+}
+
+function hashValue(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function stableAuditJson(value: Record<string, unknown>): string {
+  return JSON.stringify(
+    Object.keys(value)
+      .sort()
+      .reduce<Record<string, unknown>>((accumulator, key) => {
+        accumulator[key] = value[key];
+        return accumulator;
+      }, {}),
+  );
+}
+
+function buildPersistedAuditEvent(
+  entry: PrivilegedAuditEntry,
+  previousEventHash: string | null,
+): PersistedPrivilegedAuditEvent {
+  const createdAt = new Date(entry.timestamp);
+  const persisted = {
+    requestId: entry.requestId,
+    method: entry.method,
+    path: entry.path,
+    principalType: entry.principalType,
+    actorAddress: entry.actorAddress ?? null,
+    requiredRoles: [...(entry.requiredRoles ?? [])],
+    tokenRoles: [...(entry.tokenRoles ?? [])],
+    currentRoles: [...(entry.currentRoles ?? [])],
+    decision: entry.decision,
+    reason: entry.reason ?? null,
+    outcome: entry.outcome,
+    statusCode: entry.statusCode,
+    responseTimeMs: entry.responseTimeMs,
+    ipHash: hashValue(entry.ip),
+    userAgentHash: hashValue(entry.userAgent),
+    previousEventHash,
+    createdAt,
+  };
+  const eventHash = hashValue(stableAuditJson(persisted));
+
+  return {
+    ...persisted,
+    eventHash,
+  };
+}
+
+async function persistPrivilegedAuditEvent(entry: PrivilegedAuditEntry): Promise<void> {
+  if (!auditPrisma) {
+    const previousEventHash =
+      memoryAuditEvents[memoryAuditEvents.length - 1]?.eventHash ?? null;
+    memoryAuditEvents.push(buildPersistedAuditEvent(entry, previousEventHash));
+    while (memoryAuditEvents.length > MAX_MEMORY_AUDIT_EVENTS) {
+      memoryAuditEvents.shift();
+    }
+    return;
+  }
+
+  await auditPrisma.$transaction(async (tx) => {
+    const previousEvent = await tx.privilegedAuditEvent.findFirst({
+      orderBy: { createdAt: 'desc' },
+      select: { eventHash: true },
+    });
+    const persisted = buildPersistedAuditEvent(
+      entry,
+      previousEvent?.eventHash ?? null,
+    );
+
+    await tx.privilegedAuditEvent.create({
+      data: persisted,
+    });
+  });
+}
+
+export function getMemoryPrivilegedAuditEvents(): readonly PersistedPrivilegedAuditEvent[] {
+  return memoryAuditEvents;
+}
+
+export function clearMemoryPrivilegedAuditEvents(): void {
+  memoryAuditEvents.length = 0;
 }
 
 export function auditPrivilegedAccess(
@@ -53,7 +184,7 @@ export function auditPrivilegedAccess(
     const elapsedNs = process.hrtime.bigint() - startTime;
     const elapsedMs = Number(elapsedNs) / 1_000_000;
     const statusCode = res.statusCode || 0;
-    const auditEntry = {
+    const auditEntry: PrivilegedAuditEntry = {
       type: 'privileged_access_audit',
       timestamp: new Date().toISOString(),
       requestId: req.requestId || 'unknown',
@@ -75,10 +206,16 @@ export function auditPrivilegedAccess(
 
     if (context.decision === 'rejected' || statusCode >= 400) {
       logger.warn('Privileged access audit', auditEntry);
-      return;
+    } else {
+      logger.info('Privileged access audit', auditEntry);
     }
 
-    logger.info('Privileged access audit', auditEntry);
+    void persistPrivilegedAuditEvent(auditEntry).catch((error: unknown) => {
+      logger.error('Failed to persist privileged access audit', {
+        error,
+        requestId: auditEntry.requestId,
+      });
+    });
   };
 
   res.once('finish', emitAudit);

@@ -57,6 +57,9 @@ tokens for a wallet.
 Successful and rejected privileged requests emit `privileged_access_audit`
 events with request ID, actor or operational-token principal, required roles,
 decision, outcome, status, IP, and user agent.
+When `DATABASE_URL` is configured, those events are also persisted to the
+append-only `PrivilegedAuditEvent` table with hash-linked evidence and hashed
+IP/user-agent values for incident correlation.
 
 ### Runtime characteristics
 
