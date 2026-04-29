@@ -45,14 +45,15 @@ for infrastructure probes, but production responses only expose a minimal
 ready/not-ready result. Full `/health`, `/metrics`, and `/docs` diagnostics are
 local-friendly but production-gated by `OPERATIONAL_ENDPOINTS_TOKEN`; docs
 default to disabled in production unless `API_DOCS_ENABLED=true` is set. The
-`/v1` protected routes require a bearer JWT with the `operator` or `admin` role.
-Operators
-obtain tokens through the wallet-backed `/v1/auth` nonce/login flow. Configure
+`/v1` protected routes require a bearer JWT whose claimed `operator` or `admin`
+role still matches the current wallet allowlists. Operators obtain tokens through
+the wallet-backed `/v1/auth` nonce/login flow. Configure
 at least one `AUTH_OPERATOR_ADDRESSES` or `AUTH_ADMIN_ADDRESSES` value before
 relying on protected ops routes; production startup fails closed when both are
 empty or malformed.
 Refresh-session incident endpoints expose non-secret metadata only and support
-bulk revocation of active refresh sessions for a wallet.
+bulk revocation of active refresh sessions and outstanding privileged access
+tokens for a wallet.
 
 ### Runtime characteristics
 

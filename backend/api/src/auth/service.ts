@@ -49,9 +49,21 @@ type StoredRefreshSession = {
   revokedAt?: Date | null;
 };
 
+type StoredAccessRevocation = {
+  address: string;
+  notBefore: Date;
+  reason?: string | null;
+  actorAddress?: string | null;
+  requestId?: string | null;
+  createdAt?: Date | null;
+  updatedAt?: Date | null;
+};
+
 export interface TokenPayload {
   address: string;
   roles: string[];
+  iat?: number;
+  exp?: number;
 }
 
 export interface AuthTokens {
@@ -86,6 +98,10 @@ export interface RefreshSessionRevokeAuditContext {
   requestId?: string;
 }
 
+interface AccessRevocationAuditContext extends RefreshSessionRevokeAuditContext {
+  reason: string;
+}
+
 interface RefreshTokenPayload {
   address: string;
   roles: string[];
@@ -98,6 +114,7 @@ interface RefreshTokenPayload {
 const authPrisma = config.databaseUrl ? new PrismaClient() : null;
 const memoryNonces = new Map<string, StoredNonce>();
 const memoryRefreshSessions = new Map<string, StoredRefreshSession>();
+const memoryAccessRevocations = new Map<string, StoredAccessRevocation>();
 
 /**
  * Generate JWT access and refresh tokens.
@@ -346,12 +363,18 @@ export async function revokeRefreshSessionsForAddress(
   const revokedCount = await revokeActiveRefreshSessionsForAddress(
     normalizedAddress,
   );
+  const accessRevocation = await revokeAccessTokensForAddress(normalizedAddress, {
+    actorAddress: auditContext?.actorAddress ?? 'system',
+    requestId: auditContext?.requestId,
+    reason: 'refresh_sessions_revoked',
+  });
 
-  logger.info('Refresh sessions revoked for address', {
+  logger.info('Refresh sessions and access tokens revoked for address', {
     address: normalizedAddress,
     actorAddress: auditContext?.actorAddress,
     requestId: auditContext?.requestId,
     revokedCount,
+    accessTokenNotBefore: accessRevocation.notBefore.toISOString(),
   });
 
   return {
@@ -360,7 +383,7 @@ export async function revokeRefreshSessionsForAddress(
   };
 }
 
-function resolveRolesForAddress(address: string): string[] {
+export function resolveRolesForAddress(address: string): string[] {
   const normalizedAddress = normalizeAddress(address);
   const roles = new Set<string>(['user']);
 
@@ -374,6 +397,37 @@ function resolveRolesForAddress(address: string): string[] {
   }
 
   return [...roles];
+}
+
+export async function isAccessTokenRevoked(
+  payload: Pick<TokenPayload, 'address' | 'iat'>,
+): Promise<boolean> {
+  if (!payload.iat || !Number.isFinite(payload.iat)) {
+    return true;
+  }
+
+  const revocation = await findAccessRevocationForAddress(
+    normalizeAddress(payload.address),
+  );
+
+  if (!revocation) {
+    return false;
+  }
+
+  return payload.iat * 1000 <= revocation.notBefore.getTime();
+}
+
+async function revokeAccessTokensForAddress(
+  address: string,
+  auditContext: AccessRevocationAuditContext,
+): Promise<StoredAccessRevocation> {
+  const normalizedAddress = normalizeAddress(address);
+  const notBefore = new Date();
+  return upsertAccessRevocationForAddress(
+    normalizedAddress,
+    notBefore,
+    auditContext,
+  );
 }
 
 function buildLoginMessage(
@@ -659,6 +713,71 @@ async function findRefreshSessionsForAddress(
     where: { address },
     orderBy: { createdAt: 'desc' },
     take: 100,
+  });
+}
+
+async function findAccessRevocationForAddress(
+  address: string,
+): Promise<StoredAccessRevocation | null> {
+  if (!authPrisma) {
+    return memoryAccessRevocations.get(address) ?? null;
+  }
+
+  return authPrisma.authAccessRevocation.findUnique({
+    where: { address },
+  });
+}
+
+async function upsertAccessRevocationForAddress(
+  address: string,
+  notBefore: Date,
+  auditContext: AccessRevocationAuditContext,
+): Promise<StoredAccessRevocation> {
+  if (!authPrisma) {
+    const existing = memoryAccessRevocations.get(address);
+    const nextNotBefore =
+      existing && existing.notBefore > notBefore ? existing.notBefore : notBefore;
+    const revocation: StoredAccessRevocation = {
+      address,
+      notBefore: nextNotBefore,
+      reason: auditContext.reason,
+      actorAddress: auditContext.actorAddress,
+      requestId: auditContext.requestId ?? null,
+      createdAt: existing?.createdAt ?? new Date(),
+      updatedAt: new Date(),
+    };
+    memoryAccessRevocations.set(address, revocation);
+    return revocation;
+  }
+
+  return authPrisma.$transaction(async (tx) => {
+    const existing = await tx.authAccessRevocation.findUnique({
+      where: { address },
+    });
+    const nextNotBefore =
+      existing && existing.notBefore > notBefore ? existing.notBefore : notBefore;
+
+    if (!existing) {
+      return tx.authAccessRevocation.create({
+        data: {
+          address,
+          notBefore: nextNotBefore,
+          reason: auditContext.reason,
+          actorAddress: auditContext.actorAddress,
+          requestId: auditContext.requestId,
+        },
+      });
+    }
+
+    return tx.authAccessRevocation.update({
+      where: { address },
+      data: {
+        notBefore: nextNotBefore,
+        reason: auditContext.reason,
+        actorAddress: auditContext.actorAddress,
+        requestId: auditContext.requestId,
+      },
+    });
   });
 }
 

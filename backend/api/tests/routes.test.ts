@@ -381,6 +381,7 @@ describe('backend routes', () => {
     const { CacheService } = await import('../src/services/CacheService');
     const { ReconciliationService } = await import('../src/services/ReconciliationService');
     const { ReconciliationScheduler } = await import('../src/services/ReconciliationScheduler');
+    const { config } = await import('../src/config');
     const { generateTokens } = await import('../src/auth/service');
     const cache = new CacheService();
     const reconciliation = {
@@ -410,6 +411,7 @@ describe('backend routes', () => {
     const reconciliationScheduler = {
       getLatestResult: vi.fn().mockReturnValue(null),
     } as unknown as ReconciliationScheduler;
+    (config as any).authOperatorAddresses = ['aeth1operator'];
     const { accessToken } = generateTokens({
       address: 'aeth1operator',
       roles: ['operator'],

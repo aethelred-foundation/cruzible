@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { authenticate, requireRoles } from '../src/auth/middleware';
 import { rateLimiter } from '../src/middleware/rateLimiter';
 import { generateTokens } from '../src/auth/service';
+import { config } from '../src/config';
 import { withHttpServer } from './helpers/http';
 
 const originalEnv = { ...process.env };
@@ -80,6 +81,42 @@ describe('auth middleware', () => {
       expect(response.status).toBe(403);
       expect(body.message).toContain('Insufficient permissions');
     });
+  });
+
+  it('rejects stale privileged role claims after current role assignment changes', async () => {
+    const originalOperatorAddresses = [...config.authOperatorAddresses];
+    const originalAdminAddresses = [...config.authAdminAddresses];
+
+    try {
+      (config as any).authOperatorAddresses = [];
+      (config as any).authAdminAddresses = [];
+
+      const app = express();
+      app.use(rateLimiter);
+      app.get('/ops', authenticate, requireRoles('operator'), (_req, res) => {
+        res.json({ ok: true });
+      });
+
+      const { accessToken } = generateTokens({
+        address: 'aeth1staleoperator',
+        roles: ['user', 'operator'],
+      });
+
+      await withHttpServer(app, async (baseUrl) => {
+        const response = await fetch(`${baseUrl}/ops`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+        const body = await response.json();
+
+        expect(response.status).toBe(403);
+        expect(body.message).toContain('Insufficient permissions');
+      });
+    } finally {
+      (config as any).authOperatorAddresses = originalOperatorAddresses;
+      (config as any).authAdminAddresses = originalAdminAddresses;
+    }
   });
 });
 
@@ -352,13 +389,13 @@ describe('auth routes', () => {
         body: JSON.stringify({ refresh_token: loginTokens.refreshToken }),
       });
 
-      const listAfterRevokeResponse = await fetch(
+      const accessAfterRevokeResponse = await fetch(
         `${baseUrl}/v1/auth/sessions/aeth1operator`,
         {
           headers: { Authorization: `Bearer ${loginTokens.accessToken}` },
         },
       );
-      const listAfterRevokeBody = await listAfterRevokeResponse.json();
+      const accessAfterRevokeBody = await accessAfterRevokeResponse.json();
 
       expect(listResponse.status).toBe(200);
       expect(listBody.address).toBe('aeth1operator');
@@ -378,7 +415,8 @@ describe('auth routes', () => {
         revokedCount: 1,
       });
       expect(refreshAfterRevoke.status).toBe(401);
-      expect(listAfterRevokeBody.sessions[0].status).toBe('revoked');
+      expect(accessAfterRevokeResponse.status).toBe(401);
+      expect(accessAfterRevokeBody.message).toContain('Access token revoked');
     });
   });
 

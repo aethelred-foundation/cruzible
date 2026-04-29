@@ -25,13 +25,15 @@ This runbook does not assume that every checked-in infrastructure artifact is tu
 - Backend env is injected by the runtime environment. `backend/api` does not auto-load `.env` files.
 - Protected admin/ops endpoints use JWT bearer auth with wallet-backed nonce
   login, refresh-token rotation, and logout revocation.
-- Operator/admin role changes are re-evaluated during refresh-token rotation;
-  already-issued access tokens remain valid until their configured short expiry.
+- Operator/admin role changes are re-evaluated on each protected ops request
+  and during refresh-token rotation, so demoted wallets cannot keep using stale
+  privileged access tokens.
 - Refresh-token rotation is bound to the login user-agent. IP context drift is
   logged for investigation but not rejected by default to avoid mobile/VPN lockouts.
 - Operators can inspect non-secret refresh-session metadata with
   `GET /v1/auth/sessions/:address` and revoke active wallet sessions with
-  `POST /v1/auth/sessions/:address/revoke`.
+  `POST /v1/auth/sessions/:address/revoke`. Revocation also invalidates
+  outstanding access tokens for that wallet.
 
 ## 3. Startup Paths
 

@@ -43,6 +43,18 @@ model AuthRefreshSession {
   @@index([revokedAt])
 }
 
+model AuthAccessRevocation {
+  address      String   @id @db.VarChar(64)
+  notBefore    DateTime
+  reason       String?  @db.VarChar(120)
+  actorAddress String?  @db.VarChar(64)
+  requestId    String?  @db.VarChar(128)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([notBefore])
+}
+
 // ============ BLOCKS ============
 
 model Block {

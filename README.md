@@ -101,11 +101,17 @@ At minimum, plan to provide:
 - `GET /v1/alerts/summary`
 - `GET /v1/reconciliation/status`
 
-Protected endpoints require a bearer token, but the current API route surface does not expose a token issuance route. Operators should treat JWT provisioning as an out-of-band concern for this workspace snapshot.
+Protected endpoints require bearer JWTs issued through the wallet-backed
+`/v1/auth` nonce/login flow. Operator and admin roles must be present in the
+token and still match the current `AUTH_OPERATOR_ADDRESSES` or
+`AUTH_ADMIN_ADDRESSES` allowlists when the request is made.
 
 ### WebSocket note
 
-The API starts a Socket.IO server on the same port as HTTP. In the current implementation, clients receive an initial `ready` event on connection; no richer event contract is documented in this repo yet.
+The API starts a Socket.IO server on the same port as HTTP. Clients receive an
+initial `ready` event after connection middleware succeeds. Production
+handshakes require an allowed origin plus a valid API access token or
+`OPERATIONAL_ENDPOINTS_TOKEN`, and active connections are capped per client IP.
 
 ## Common Commands
 
