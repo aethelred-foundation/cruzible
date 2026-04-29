@@ -5,7 +5,12 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { JsonWebTokenError } from 'jsonwebtoken';
-import { verifyAccessToken } from './service';
+import {
+  isAccessTokenRevoked,
+  resolveRolesForAddress,
+  verifyAccessToken,
+} from './service';
+import { auditPrivilegedAccess } from '../middleware/privilegedAudit';
 import { logger } from '../utils/logger';
 
 /**
@@ -106,7 +111,7 @@ export function optionalAuth(req: Request, res: Response, next: NextFunction): v
  * Requires user to have at least one of the specified roles
  */
 export function requireRoles(...allowedRoles: string[]) {
-  return (req: Request, res: Response, next: NextFunction): void => {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     if (!req.user) {
       res.status(401).json({
         success: false,
@@ -116,23 +121,81 @@ export function requireRoles(...allowedRoles: string[]) {
       return;
     }
 
-    const hasRole = req.user.roles.some(role => allowedRoles.includes(role));
+    try {
+      const tokenRoles = req.user.roles;
+      const currentRoles = resolveRolesForAddress(req.user.address);
+      const hasTokenRole = tokenRoles.some(role => allowedRoles.includes(role));
+      const hasCurrentRole = currentRoles.some(role => allowedRoles.includes(role));
 
-    if (!hasRole) {
-      logger.warn('Insufficient permissions', {
-        address: req.user.address,
-        required: allowedRoles,
-        actual: req.user.roles,
+      if (!hasTokenRole || !hasCurrentRole) {
+        auditPrivilegedAccess(req, res, {
+          principalType: 'wallet',
+          actorAddress: req.user.address,
+          tokenRoles,
+          currentRoles,
+          requiredRoles: allowedRoles,
+          decision: 'rejected',
+          reason: hasTokenRole ? 'role_no_longer_current' : 'missing_required_role',
+        });
+        logger.warn('Insufficient permissions', {
+          address: req.user.address,
+          required: allowedRoles,
+          tokenRoles,
+          currentRoles,
+        });
+        res.status(403).json({
+          success: false,
+          error: 'Forbidden',
+          message: 'Insufficient permissions',
+        });
+        return;
+      }
+
+      if (await isAccessTokenRevoked(req.user)) {
+        auditPrivilegedAccess(req, res, {
+          principalType: 'wallet',
+          actorAddress: req.user.address,
+          tokenRoles,
+          currentRoles,
+          requiredRoles: allowedRoles,
+          decision: 'rejected',
+          reason: 'access_token_revoked',
+        });
+        logger.warn('Revoked access token rejected', {
+          address: req.user.address,
+          required: allowedRoles,
+        });
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+          message: 'Access token revoked',
+        });
+        return;
+      }
+
+      req.user = {
+        ...req.user,
+        roles: currentRoles,
+      };
+
+      auditPrivilegedAccess(req, res, {
+        principalType: 'wallet',
+        actorAddress: req.user.address,
+        tokenRoles,
+        currentRoles,
+        requiredRoles: allowedRoles,
+        decision: 'allowed',
       });
-      res.status(403).json({
+
+      next();
+    } catch (error) {
+      logger.error('Authorization freshness check failed', { error });
+      res.status(500).json({
         success: false,
-        error: 'Forbidden',
-        message: 'Insufficient permissions',
+        error: 'Internal Server Error',
+        message: 'Authorization failed',
       });
-      return;
     }
-
-    next();
   };
 }
 
