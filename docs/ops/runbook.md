@@ -218,6 +218,9 @@ npm run db:migrate:deploy
 - Confirm JWT secrets and CORS settings are production-safe before any shared deployment.
 - Confirm `OPERATIONAL_ENDPOINTS_TOKEN` gates full `/health`, `/metrics`, and `/docs`
   while `/health/live` and minimal `/health/ready` remain usable by probes.
+- Confirm production WebSocket handshakes reject missing tokens and unexpected
+  origins, and that approved access-token or operational-token handshakes still
+  receive the `ready` event.
 - Confirm auth role address lists are set and test `/v1/auth/nonce`,
   `/v1/auth/login`, `/v1/auth/refresh`, and `/v1/auth/logout`.
 - Confirm operator session incident response with `/v1/auth/sessions/:address`
