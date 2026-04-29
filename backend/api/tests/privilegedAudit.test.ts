@@ -35,6 +35,7 @@ describe('privileged access audit logging', () => {
 
     const { authenticate, requireRoles } = await import('../src/auth/middleware');
     const { generateTokens } = await import('../src/auth/service');
+    const { rateLimiter } = await import('../src/middleware/rateLimiter');
     const { accessToken } = generateTokens({
       address: 'aeth1operator',
       roles: ['user', 'operator'],
@@ -46,6 +47,7 @@ describe('privileged access audit logging', () => {
       res.setHeader('x-request-id', req.requestId);
       next();
     });
+    app.use(rateLimiter);
     app.get('/ops', authenticate, requireRoles('operator'), (_req, res) => {
       res.json({ ok: true });
     });
